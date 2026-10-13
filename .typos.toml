@@ -1,0 +1,5 @@
+[default]
+locale = "en-us"
+
+[default.extend-words]
+# Add project-specific terms when needed.
