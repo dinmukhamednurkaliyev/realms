@@ -1,0 +1,13 @@
+name: realms_engine
+description: Core game engine for Realms.
+version: 0.1.0
+publish_to: none
+
+environment:
+  sdk: ^3.13.0
+
+resolution: workspace
+
+dev_dependencies:
+  test: ^1.26.0
+  very_good_analysis: ^11.0.0

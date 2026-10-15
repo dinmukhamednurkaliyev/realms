@@ -1,39 +1,68 @@
+
 [tools]
 flutter = "3.47.7"
 java = "21.0.2"
 typos = "1.51.1"
 
+
+# Dependencies
+
 [tasks."dependencies:install"]
-description = "Install Flutter project dependencies"
+description = "Install project dependencies"
 run = "flutter pub get"
 
+[tasks."dependencies:verify"]
+description = "Restore dependencies from the lockfile"
+run = "flutter pub get --enforce-lockfile"
+
 [tasks."dependencies:outdated"]
-description = "Show outdated Flutter dependencies"
+description = "Show outdated project dependencies"
 run = "flutter pub outdated"
 
-[tasks."dependencies:verify"]
-description = "Install and verify locked Flutter dependencies"
-run = "flutter pub get --enforce-lockfile"
+
+# Formatting
 
 [tasks."format:check"]
 description = "Check Dart formatting without modifying files"
 run = "dart format --output=none --set-exit-if-changed ."
 
 [tasks."format:apply"]
-description = "Apply Dart formatting to source files"
+description = "Format Dart source files"
 run = "dart format ."
 
+
+# Static Analysis
+
 [tasks.analyze]
-description = "Analyze Dart source code"
-run = "flutter analyze --fatal-infos"
+description = "Analyze application and game engine"
+run = ["flutter analyze --fatal-infos", { task = "analyze:engine" }]
+
+[tasks."analyze:engine"]
+description = "Analyze the game engine"
+dir = "packages/realms_engine"
+run = "dart analyze --fatal-infos"
+
+
+# Spelling
 
 [tasks."spelling:check"]
 description = "Check spelling in project files"
 run = "typos ."
 
+
+# Testing
+
 [tasks.test]
-description = "Run Flutter tests"
-run = "flutter test"
+description = "Run all project tests"
+run = [{ task = "test:engine" }]
+
+[tasks."test:engine"]
+description = "Run game engine tests"
+dir = "packages/realms_engine"
+run = "dart test"
+
+
+# Quality Verification
 
 [tasks.verify]
 description = "Run all project quality checks"
@@ -41,24 +70,37 @@ run = [
   { task = "format:check" },
   { task = "analyze" },
   { task = "spelling:check" },
+  { task = "test" },
 ]
 
+
+# Development
+
 [tasks."run:web"]
-description = "Run the Flutter application using a local web server"
+description = "Run application using the local web server"
 run = "flutter run -d web-server"
 interactive = true
+
+
+# Web Builds
 
 [tasks."build:web"]
 description = "Build the production web application"
 run = "flutter build web --release"
 
+
+# Android Builds
+
 [tasks."build:android:debug"]
-description = "Build a debug Android application package"
+description = "Build the Android debug application"
 run = "flutter build apk --debug"
 
 [tasks."build:android:bundle"]
-description = "Build an Android App Bundle"
+description = "Build the Android release application bundle"
 run = "flutter build appbundle --release"
+
+
+# Maintenance
 
 [tasks.clean]
 description = "Remove generated Flutter build artifacts"

@@ -1,6 +1,8 @@
 
 name: Continuous Integration
 
+# Triggers
+
 on:
   push:
     branches:
@@ -12,14 +14,21 @@ on:
 
   workflow_dispatch:
 
+# Security
+
 permissions:
   contents: read
 
+# Concurrency
+
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
+# Jobs
+
 jobs:
+  # Code Quality
 
   validation:
     name: Validate Code
@@ -43,6 +52,7 @@ jobs:
       - name: Verify code quality
         run: mise run verify
 
+  # Web Application
 
   web:
     name: Build Web
@@ -65,6 +75,8 @@ jobs:
 
       - name: Build web application
         run: mise run build:web
+
+  # Android Application
 
   android:
     name: Build Android
