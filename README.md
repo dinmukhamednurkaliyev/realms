@@ -1,3 +1,2 @@
-# realms
+# Realms
 
-A new Flutter project.

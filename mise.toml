@@ -1,4 +1,6 @@
 
+# Development Tools
+
 [tools]
 flutter = "3.47.7"
 java = "21.0.2"
@@ -19,6 +21,20 @@ run = "flutter pub get --enforce-lockfile"
 description = "Show outdated project dependencies"
 run = "flutter pub outdated"
 
+[tasks."dependencies:sort"]
+description = "Sort dependencies in all pubspec files"
+run = [
+  "dart run dependency_sorter",
+  "dart run dependency_sorter --path packages/engine",
+]
+
+[tasks."dependencies:check-order"]
+description = "Check dependency ordering in all pubspec files"
+run = [
+  "dart run dependency_sorter --check",
+  "dart run dependency_sorter --check --path packages/engine",
+]
+
 
 # Formatting
 
@@ -27,7 +43,7 @@ description = "Check Dart formatting without modifying files"
 run = "dart format --output=none --set-exit-if-changed ."
 
 [tasks."format:apply"]
-description = "Format Dart source files"
+description = "Format all Dart source files"
 run = "dart format ."
 
 
@@ -35,11 +51,15 @@ run = "dart format ."
 
 [tasks.analyze]
 description = "Analyze application and game engine"
-run = ["flutter analyze --fatal-infos", { task = "analyze:engine" }]
+run = [{ task = "analyze:application" }, { task = "analyze:engine" }]
+
+[tasks."analyze:application"]
+description = "Analyze Flutter application"
+run = "flutter analyze --fatal-infos"
 
 [tasks."analyze:engine"]
-description = "Analyze the game engine"
-dir = "packages/realms_engine"
+description = "Analyze game engine"
+dir = "packages/engine"
 run = "dart analyze --fatal-infos"
 
 
@@ -58,8 +78,29 @@ run = [{ task = "test:engine" }]
 
 [tasks."test:engine"]
 description = "Run game engine tests"
-dir = "packages/realms_engine"
+dir = "packages/engine"
 run = "dart test"
+
+
+# Automatic Fixes
+
+[tasks.fix]
+description = "Apply automatic fixes to the entire project"
+run = [
+  { task = "fix:application" },
+  { task = "fix:engine" },
+  { task = "dependencies:sort" },
+  { task = "format:apply" },
+]
+
+[tasks."fix:application"]
+description = "Apply automatic fixes to Flutter application"
+run = "dart fix --apply"
+
+[tasks."fix:engine"]
+description = "Apply automatic fixes to game engine"
+dir = "packages/engine"
+run = "dart fix --apply"
 
 
 # Quality Verification
@@ -68,6 +109,7 @@ run = "dart test"
 description = "Run all project quality checks"
 run = [
   { task = "format:check" },
+  { task = "dependencies:check-order" },
   { task = "analyze" },
   { task = "spelling:check" },
   { task = "test" },
@@ -77,7 +119,7 @@ run = [
 # Development
 
 [tasks."run:web"]
-description = "Run application using the local web server"
+description = "Run Flutter application using a local web server"
 run = "flutter run -d web-server"
 interactive = true
 

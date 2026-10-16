@@ -1,4 +1,4 @@
-name: realms_engine
+name: engine
 description: Core game engine for Realms.
 version: 0.1.0
 publish_to: none

@@ -4,18 +4,19 @@ publish_to: 'none'
 version: 0.1.0+1
 
 workspace:
-  - packages/realms_engine
+  - packages/engine
 
 environment:
   sdk: ^3.13.5
 
 dependencies:
+  engine:
+    path: packages/engine
   flutter:
     sdk: flutter
-  realms_engine:
-    path: packages/realms_engine
 
 dev_dependencies:
+  dependency_sorter: ^0.2.0
   flutter_test:
     sdk: flutter
   very_good_analysis: ^11.0.0
