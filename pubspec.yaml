@@ -3,17 +3,23 @@ description: "A new Flutter project."
 publish_to: 'none'
 version: 0.1.0+1
 
+workspace:
+  - packages/engine
+
 environment:
   sdk: ^3.13.5
 
 dependencies:
+  engine:
+    path: packages/engine
   flutter:
     sdk: flutter
 
 dev_dependencies:
+  dependency_sorter: ^0.2.0
   flutter_test:
     sdk: flutter
-  flutter_lints: ^6.0.0
+  very_good_analysis: ^11.0.0
 
 flutter:
   uses-material-design: true
