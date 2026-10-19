@@ -114,12 +114,8 @@ List<List<int?>> _transpose(List<List<int?>> board) {
 GameBoard _spawnTile(GameBoard board, Random random) {
   final emptyPositions = <({int rowIndex, int columnIndex})>[];
 
-  for (var rowIndex = 0; rowIndex < GameBoard.dimension; rowIndex++) {
-    for (
-      var columnIndex = 0;
-      columnIndex < GameBoard.dimension;
-      columnIndex++
-    ) {
+  for (var rowIndex = 0; rowIndex < board.rowCount; rowIndex++) {
+    for (var columnIndex = 0; columnIndex < board.columnCount; columnIndex++) {
       if (board.tileAt(rowIndex, columnIndex) == null) {
         emptyPositions.add((rowIndex: rowIndex, columnIndex: columnIndex));
       }
@@ -130,6 +126,7 @@ GameBoard _spawnTile(GameBoard board, Random random) {
   // merging creates one.
   final position = emptyPositions[random.nextInt(emptyPositions.length)];
   final value = random.nextDouble() < 0.9 ? 2 : 4;
+
   final nextRows = <List<int?>>[
     for (final row in board.rows) [...row],
   ];

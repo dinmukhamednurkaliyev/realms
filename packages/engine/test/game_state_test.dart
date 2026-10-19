@@ -3,6 +3,8 @@ import 'dart:math';
 import 'package:engine/engine.dart';
 import 'package:test/test.dart';
 
+const _classicBoardSize = 4;
+
 void main() {
   group('GameState.move', () {
     final lineCases = <({String name, List<int?> input, List<int?> output})>[
@@ -65,7 +67,7 @@ void main() {
             final originalRows = _rowsWithLine(testCase.input, direction);
             final state = GameState(GameBoard(originalRows));
             final expectedRows = _rowsWithLine(testCase.output, direction);
-            // The last empty cell is outside the tested row or column.
+
             expectedRows[3][3] = 2;
 
             final next = state.move(direction, random: _ControlledRandom());
@@ -76,7 +78,7 @@ void main() {
           });
         }
 
-        test('leaves an empty board and the random source unchanged', () {
+        test('leaves an empty board and random source unchanged', () {
           final state = GameState(GameBoard(_emptyRows()));
           final random = _ControlledRandom();
 
@@ -84,7 +86,7 @@ void main() {
           expect(random.calls, isEmpty);
         });
 
-        test('leaves a settled line and the random source unchanged', () {
+        test('leaves a settled line and random source unchanged', () {
           final state = GameState(
             GameBoard(_rowsWithLine([2, 4, 8, 16], direction)),
           );
@@ -94,7 +96,7 @@ void main() {
           expect(random.calls, isEmpty);
         });
 
-        test('leaves a blocked full board and the random source unchanged', () {
+        test('leaves a blocked full board and random source unchanged', () {
           final state = GameState(
             GameBoard([
               [2, 4, 2, 4],
@@ -118,12 +120,14 @@ void main() {
         [4, 4, 8, 8],
         [null, null, null, null],
       ];
+
       final verticalRows = <List<int?>>[
         [2, null, 4, null],
         [2, 4, 4, null],
         [4, 4, null, 8],
         [4, null, null, 8],
       ];
+
       final cases = [
         (
           direction: MoveDirection.left,
@@ -182,23 +186,74 @@ void main() {
       }
     });
 
+    group('variable board dimensions', () {
+      test('moves and spawns on a 5x5 board', () {
+        final state = GameState(
+          GameBoard([
+            [2, null, 2, null, 4],
+            [null, null, null, null, null],
+            [null, null, null, null, null],
+            [null, null, null, null, null],
+            [null, null, null, null, null],
+          ]),
+        );
+
+        final next = state.move(
+          MoveDirection.left,
+          random: _ControlledRandom(),
+        );
+
+        expect(next.board.rows, [
+          [4, 4, null, null, null],
+          [null, null, null, null, null],
+          [null, null, null, null, null],
+          [null, null, null, null, null],
+          [null, null, null, null, 2],
+        ]);
+      });
+
+      test('moves vertically on a rectangular 4x6 board', () {
+        final state = GameState(
+          GameBoard([
+            [2, null, null, null, null, null],
+            [2, null, null, null, null, null],
+            [null, null, null, null, null, null],
+            [null, null, null, null, null, null],
+          ]),
+        );
+
+        final next = state.move(
+          MoveDirection.down,
+          random: _ControlledRandom(),
+        );
+
+        expect(next.board.rows, [
+          [null, null, null, null, null, null],
+          [null, null, null, null, null, null],
+          [null, null, null, null, null, null],
+          [4, null, null, null, null, 2],
+        ]);
+      });
+    });
+
     group('spawning', () {
       for (var position = 0; position < 14; position++) {
         test('selects empty cell $position in row order', () {
           final state = GameState(
             GameBoard(_rowsWithLine([null, 2, 4, null], MoveDirection.left)),
           );
+
           final random = _ControlledRandom(position: position);
+
           final expectedRows = _rowsWithLine([
             2,
             4,
             null,
             null,
           ], MoveDirection.left);
+
           final cell = position + 2;
-          expectedRows[cell ~/ GameBoard.dimension][cell %
-                  GameBoard.dimension] =
-              2;
+          expectedRows[cell ~/ _classicBoardSize][cell % _classicBoardSize] = 2;
 
           final next = state.move(MoveDirection.left, random: random);
 
@@ -217,13 +272,16 @@ void main() {
           final state = GameState(
             GameBoard(_rowsWithLine([null, 2, 4, null], MoveDirection.left)),
           );
+
           final random = _ControlledRandom(tileRoll: roll);
+
           final expectedRows = _rowsWithLine([
             2,
             4,
             null,
             null,
           ], MoveDirection.left);
+
           expectedRows[3][3] = value;
 
           final next = state.move(MoveDirection.left, random: random);
@@ -242,6 +300,7 @@ void main() {
             [16, 32, 64, 128],
           ]),
         );
+
         final random = _ControlledRandom(tileRoll: 0.9);
 
         final next = state.move(MoveDirection.left, random: random);
@@ -252,6 +311,7 @@ void main() {
           [8, 16, 32, 64],
           [16, 32, 64, 128],
         ]);
+
         expect(random.calls, ['nextInt(1)', 'nextDouble']);
       });
     });
@@ -260,14 +320,17 @@ void main() {
       final initial = GameState(
         GameBoard(_rowsWithLine([2, null, 2, 4], MoveDirection.left)),
       );
+
       var first = initial;
       var second = initial;
+
       final firstRandom = Random(42);
       final secondRandom = Random(42);
 
       for (var turn = 0; turn < 100; turn++) {
         final direction =
             MoveDirection.values[turn % MoveDirection.values.length];
+
         first = first.move(direction, random: firstRandom);
         second = second.move(direction, random: secondRandom);
 
@@ -282,6 +345,7 @@ void main() {
       var state = GameState(
         GameBoard(_rowsWithLine([2, null, 2, 4], MoveDirection.left)),
       );
+
       final history = <({GameState state, List<List<int?>> rows})>[];
       final random = Random(42);
 
@@ -292,6 +356,7 @@ void main() {
             for (final row in state.board.rows) [...row],
           ],
         ));
+
         state = state.move(direction, random: random);
       }
 
@@ -303,25 +368,26 @@ void main() {
 }
 
 List<List<int?>> _emptyRows() => List.generate(
-  GameBoard.dimension,
-  (_) => List<int?>.filled(GameBoard.dimension, null),
+  _classicBoardSize,
+  (_) => List<int?>.filled(_classicBoardSize, null),
 );
 
-// Arrange a line from the destination edge toward the opposite edge.
 List<List<int?>> _rowsWithLine(List<int?> tiles, MoveDirection direction) {
   final rows = _emptyRows();
-  for (var index = 0; index < GameBoard.dimension; index++) {
+
+  for (var index = 0; index < _classicBoardSize; index++) {
     switch (direction) {
       case MoveDirection.left:
         rows[0][index] = tiles[index];
       case MoveDirection.right:
-        rows[0][GameBoard.dimension - 1 - index] = tiles[index];
+        rows[0][_classicBoardSize - 1 - index] = tiles[index];
       case MoveDirection.up:
         rows[index][0] = tiles[index];
       case MoveDirection.down:
-        rows[GameBoard.dimension - 1 - index][0] = tiles[index];
+        rows[_classicBoardSize - 1 - index][0] = tiles[index];
     }
   }
+
   return rows;
 }
 
@@ -345,5 +411,7 @@ final class _ControlledRandom implements Random {
   }
 
   @override
-  bool nextBool() => throw UnsupportedError('Unexpected random boolean draw.');
+  bool nextBool() {
+    throw UnsupportedError('Unexpected random boolean draw.');
+  }
 }

@@ -1,20 +1,29 @@
 import 'package:engine/engine.dart';
 import 'package:test/test.dart';
 
+const _classicBoardSize = 4;
+
 void main() {
   group('GameBoard', () {
-    for (final rowCount in [0, 3, 5]) {
-      test('rejects $rowCount rows', () {
-        expect(
-          () => GameBoard(
-            List.generate(rowCount, (_) => List<int?>.filled(4, null)),
+    test('rejects an empty board', () {
+      expect(() => GameBoard([]), throwsArgumentError);
+    });
+
+    for (final rowCount in [3, 5]) {
+      test('supports $rowCount rows', () {
+        final board = GameBoard(
+          List.generate(
+            rowCount,
+            (_) => List<int?>.filled(_classicBoardSize, null),
           ),
-          throwsArgumentError,
         );
+
+        expect(board.rowCount, rowCount);
+        expect(board.columnCount, _classicBoardSize);
       });
     }
 
-    for (var rowIndex = 0; rowIndex < GameBoard.dimension; rowIndex++) {
+    for (var rowIndex = 0; rowIndex < _classicBoardSize; rowIndex++) {
       for (final columnCount in [0, 3, 5]) {
         test('rejects $columnCount columns in row $rowIndex', () {
           final rows = _emptyRows();
@@ -50,6 +59,7 @@ void main() {
     test('preserves arbitrary integers and distinguishes zero from empty', () {
       final rows = _emptyRows();
       rows[0] = [0, -2, 1, 3];
+
       final board = GameBoard(rows);
 
       expect(board.rows, rows);
@@ -70,11 +80,11 @@ void main() {
 
     test('copies shared input rows', () {
       final row = <int?>[2, null, null, null];
-      final board = GameBoard(List.filled(GameBoard.dimension, row));
+      final board = GameBoard(List.filled(_classicBoardSize, row));
 
       row[0] = 4;
 
-      expect(board.rows, List.filled(4, [2, null, null, null]));
+      expect(board.rows, List.filled(_classicBoardSize, [2, null, null, null]));
     });
 
     test('prevents external modifications at both list levels', () {
@@ -93,6 +103,7 @@ void main() {
       test('is reflexive, symmetric and transitive with matching hashes', () {
         final rows = _emptyRows();
         rows[0] = [2, 4, null, null];
+
         final first = GameBoard(rows);
         final second = GameBoard(rows);
         final third = GameBoard(rows);
@@ -109,8 +120,8 @@ void main() {
         expect({first: 'saved'}[second], 'saved');
       });
 
-      for (var row = 0; row < GameBoard.dimension; row++) {
-        for (var column = 0; column < GameBoard.dimension; column++) {
+      for (var row = 0; row < _classicBoardSize; row++) {
+        for (var column = 0; column < _classicBoardSize; column++) {
           test('includes cell ($row, $column)', () {
             final empty = GameBoard(_emptyRows());
             final rows = _emptyRows();
@@ -126,13 +137,27 @@ void main() {
       test('compares tile values and positions', () {
         final firstRows = _emptyRows();
         firstRows[0] = [2, 4, null, null];
+
         final differentRows = _emptyRows();
         differentRows[0] = [4, 2, null, null];
 
         expect(GameBoard(firstRows), isNot(GameBoard(differentRows)));
       });
 
-      test('does not equate a board with its raw rows or another object', () {
+      test('distinguishes different board shapes', () {
+        final first = GameBoard([
+          [1, 2, 3, 4],
+        ]);
+
+        final second = GameBoard([
+          [1, 2],
+          [3, 4],
+        ]);
+
+        expect(first, isNot(second));
+      });
+
+      test('does not equate a board with raw rows or another object', () {
         final rows = _emptyRows();
         final Object rawRows = rows;
         final board = GameBoard(rows);
@@ -141,7 +166,7 @@ void main() {
         expect(board == Object(), isFalse);
       });
 
-      test('remains stable after the constructor input changes', () {
+      test('remains stable after constructor input changes', () {
         final rows = _emptyRows();
         final board = GameBoard(rows);
         final equalBoard = GameBoard(rows);
@@ -160,6 +185,6 @@ void main() {
 }
 
 List<List<int?>> _emptyRows() => List.generate(
-  GameBoard.dimension,
-  (_) => List<int?>.filled(GameBoard.dimension, null),
+  _classicBoardSize,
+  (_) => List<int?>.filled(_classicBoardSize, null),
 );
