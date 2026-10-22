@@ -12,6 +12,16 @@ final class GameBoard {
     }
   }
 
+  factory empty({required int rowCount, required int columnCount}) {
+    if (rowCount <= 0 || columnCount <= 0) {
+      throw ArgumentError('Game board dimensions must be positive.');
+    }
+
+    return GameBoard(
+      List.generate(rowCount, (_) => List<int?>.filled(columnCount, null)),
+    );
+  }
+
   final List<List<int?>> _rows;
 
   int get rowCount => _rows.length;
