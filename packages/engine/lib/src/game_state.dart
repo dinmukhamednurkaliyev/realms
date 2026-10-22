@@ -5,7 +5,21 @@ import 'package:engine/src/game_configuration.dart';
 import 'package:engine/src/move_direction.dart';
 
 final class GameState {
-  const new(this.board);
+  new(this.board, {GameConfiguration? configuration})
+    : configuration =
+          configuration ??
+          GameConfiguration(
+            rowCount: board.rowCount,
+            columnCount: board.columnCount,
+            initialTileCount: min(2, board.rowCount * board.columnCount),
+          ) {
+    if (this.configuration.rowCount != board.rowCount ||
+        this.configuration.columnCount != board.columnCount) {
+      throw ArgumentError(
+        'Game configuration dimensions must match the board.',
+      );
+    }
+  }
 
   factory start({
     required GameConfiguration configuration,
@@ -17,13 +31,14 @@ final class GameState {
     );
 
     for (var index = 0; index < configuration.initialTileCount; index++) {
-      board = _spawnTile(board, random);
+      board = _spawnTile(board, random, configuration.spawnWeights);
     }
 
-    return GameState(board);
+    return GameState(board, configuration: configuration);
   }
 
   final GameBoard board;
+  final GameConfiguration configuration;
 
   /// Slides and merges tiles, then spawns one tile only if the board changed.
   ///
@@ -36,9 +51,13 @@ final class GameState {
       return this;
     }
 
-    final nextBoard = _spawnTile(movedBoard, random);
+    final nextBoard = _spawnTile(
+      movedBoard,
+      random,
+      configuration.spawnWeights,
+    );
 
-    return GameState(nextBoard);
+    return GameState(nextBoard, configuration: configuration);
   }
 }
 
@@ -128,7 +147,11 @@ List<List<int?>> _transpose(List<List<int?>> board) {
   return transposedBoard;
 }
 
-GameBoard _spawnTile(GameBoard board, Random random) {
+GameBoard _spawnTile(
+  GameBoard board,
+  Random random,
+  Map<int, int> spawnWeights,
+) {
   final emptyPositions = <({int rowIndex, int columnIndex})>[];
 
   for (var rowIndex = 0; rowIndex < board.rowCount; rowIndex++) {
@@ -144,7 +167,7 @@ GameBoard _spawnTile(GameBoard board, Random random) {
   }
 
   final position = emptyPositions[random.nextInt(emptyPositions.length)];
-  final value = random.nextDouble() < 0.9 ? 2 : 4;
+  final value = _selectSpawnValue(spawnWeights, random);
 
   final nextRows = <List<int?>>[
     for (final row in board.rows) [...row],
@@ -153,4 +176,24 @@ GameBoard _spawnTile(GameBoard board, Random random) {
   nextRows[position.rowIndex][position.columnIndex] = value;
 
   return GameBoard(nextRows);
+}
+
+int _selectSpawnValue(Map<int, int> spawnWeights, Random random) {
+  final totalWeight = spawnWeights.values.fold(
+    0,
+    (sum, weight) => sum + weight,
+  );
+
+  final roll = random.nextDouble() * totalWeight;
+  var cumulativeWeight = 0;
+
+  for (final entry in spawnWeights.entries) {
+    cumulativeWeight += entry.value;
+
+    if (roll < cumulativeWeight) {
+      return entry.key;
+    }
+  }
+
+  throw StateError('Cannot select a spawn value.');
 }
