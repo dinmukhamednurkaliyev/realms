@@ -6,6 +6,30 @@ import 'package:test/test.dart';
 const _classicBoardSize = 4;
 
 void main() {
+  group('GameState.start', () {
+    test('creates configured initial tiles', () {
+      final configuration = GameConfiguration(rowCount: 2, columnCount: 2);
+
+      final random = _ControlledRandom();
+
+      final state = GameState.start(
+        configuration: configuration,
+        random: random,
+      );
+
+      expect(state.board.rows, [
+        [null, null],
+        [2, 2],
+      ]);
+
+      expect(random.calls, [
+        'nextInt(4)',
+        'nextDouble',
+        'nextInt(3)',
+        'nextDouble',
+      ]);
+    });
+  });
   group('GameState.move', () {
     final lineCases = <({String name, List<int?> input, List<int?> output})>[
       (

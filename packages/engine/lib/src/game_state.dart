@@ -1,10 +1,27 @@
 import 'dart:math';
 
 import 'package:engine/src/game_board.dart';
+import 'package:engine/src/game_configuration.dart';
 import 'package:engine/src/move_direction.dart';
 
 final class GameState {
   const new(this.board);
+
+  factory start({
+    required GameConfiguration configuration,
+    required Random random,
+  }) {
+    var board = GameBoard.empty(
+      rowCount: configuration.rowCount,
+      columnCount: configuration.columnCount,
+    );
+
+    for (var index = 0; index < configuration.initialTileCount; index++) {
+      board = _spawnTile(board, random);
+    }
+
+    return GameState(board);
+  }
 
   final GameBoard board;
 
@@ -122,8 +139,10 @@ GameBoard _spawnTile(GameBoard board, Random random) {
     }
   }
 
-  // Called only after a changed move: sliding requires an empty cell, and
-  // merging creates one.
+  if (emptyPositions.isEmpty) {
+    throw StateError('Cannot spawn a tile on a full board.');
+  }
+
   final position = emptyPositions[random.nextInt(emptyPositions.length)];
   final value = random.nextDouble() < 0.9 ? 2 : 4;
 
