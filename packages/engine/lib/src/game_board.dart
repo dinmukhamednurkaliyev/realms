@@ -3,7 +3,7 @@
 /// Null denotes an empty cell.
 /// Integer tile values are preserved as supplied.
 final class GameBoard {
-  new(List<List<int?>> rows)
+  new({required List<List<int?>> rows})
     : _rows = List<List<int?>>.unmodifiable(rows.map(List<int?>.unmodifiable)) {
     if (_rows.isEmpty ||
         _rows.first.isEmpty ||
@@ -18,7 +18,10 @@ final class GameBoard {
     }
 
     return GameBoard(
-      List.generate(rowCount, (_) => List<int?>.filled(columnCount, null)),
+      rows: List.generate(
+        rowCount,
+        (_) => List<int?>.filled(columnCount, null),
+      ),
     );
   }
 
@@ -30,7 +33,7 @@ final class GameBoard {
 
   List<List<int?>> get rows => _rows;
 
-  int? tileAt(int rowIndex, int columnIndex) {
+  int? tileAt({required int rowIndex, required int columnIndex}) {
     return _rows[rowIndex][columnIndex];
   }
 
@@ -52,8 +55,8 @@ final class GameBoard {
 
     for (var rowIndex = 0; rowIndex < rowCount; rowIndex++) {
       for (var columnIndex = 0; columnIndex < columnCount; columnIndex++) {
-        if (tileAt(rowIndex, columnIndex) !=
-            other.tileAt(rowIndex, columnIndex)) {
+        if (tileAt(rowIndex: rowIndex, columnIndex: columnIndex) !=
+            other.tileAt(rowIndex: rowIndex, columnIndex: columnIndex)) {
           return false;
         }
       }

@@ -54,5 +54,10 @@ final class GameConfiguration {
   final int columnCount;
   final int initialTileCount;
   final int maxTileLevel;
+
+  /// An immutable map of relative spawn weights by tile level.
+  ///
+  /// Iteration order is preserved from the supplied map and affects which level
+  /// a given random draw selects.
   final Map<int, int> spawnWeights;
 }

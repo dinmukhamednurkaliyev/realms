@@ -6,13 +6,13 @@ const _classicBoardSize = 4;
 void main() {
   group('GameBoard', () {
     test('rejects an empty board', () {
-      expect(() => GameBoard([]), throwsArgumentError);
+      expect(() => GameBoard(rows: []), throwsArgumentError);
     });
 
     for (final rowCount in [3, 5]) {
       test('supports $rowCount rows', () {
         final board = GameBoard(
-          List.generate(
+          rows: List.generate(
             rowCount,
             (_) => List<int?>.filled(_classicBoardSize, null),
           ),
@@ -29,30 +29,35 @@ void main() {
           final rows = _emptyRows();
           rows[rowIndex] = List<int?>.filled(columnCount, null);
 
-          expect(() => GameBoard(rows), throwsArgumentError);
+          expect(() => GameBoard(rows: rows), throwsArgumentError);
         });
       }
     }
 
     test('provides access to tiles by position', () {
-      final board = GameBoard([
-        [2, 4, null, null],
-        [null, null, null, null],
-        [null, null, null, null],
-        [null, null, null, 8],
-      ]);
+      final board = GameBoard(
+        rows: [
+          [2, 4, null, null],
+          [null, null, null, null],
+          [null, null, null, null],
+          [null, null, null, 8],
+        ],
+      );
 
-      expect(board.tileAt(0, 0), 2);
-      expect(board.tileAt(0, 1), 4);
-      expect(board.tileAt(0, 2), isNull);
-      expect(board.tileAt(3, 3), 8);
+      expect(board.tileAt(rowIndex: 0, columnIndex: 0), 2);
+      expect(board.tileAt(rowIndex: 0, columnIndex: 1), 4);
+      expect(board.tileAt(rowIndex: 0, columnIndex: 2), isNull);
+      expect(board.tileAt(rowIndex: 3, columnIndex: 3), 8);
     });
 
-    for (final (row, column) in [(-1, 0), (4, 0), (0, -1), (0, 4)]) {
-      test('rejects coordinates ($row, $column)', () {
-        final board = GameBoard(_emptyRows());
+    for (final (rowIndex, columnIndex) in [(-1, 0), (4, 0), (0, -1), (0, 4)]) {
+      test('rejects coordinates ($rowIndex, $columnIndex)', () {
+        final board = GameBoard(rows: _emptyRows());
 
-        expect(() => board.tileAt(row, column), throwsRangeError);
+        expect(
+          () => board.tileAt(rowIndex: rowIndex, columnIndex: columnIndex),
+          throwsRangeError,
+        );
       });
     }
 
@@ -60,16 +65,16 @@ void main() {
       final rows = _emptyRows();
       rows[0] = [0, -2, 1, 3];
 
-      final board = GameBoard(rows);
+      final board = GameBoard(rows: rows);
 
       expect(board.rows, rows);
-      expect(board.tileAt(0, 0), 0);
-      expect(board.tileAt(1, 0), isNull);
+      expect(board.tileAt(rowIndex: 0, columnIndex: 0), 0);
+      expect(board.tileAt(rowIndex: 1, columnIndex: 0), isNull);
     });
 
     test('copies both the outer list and each row', () {
       final rows = _emptyRows();
-      final board = GameBoard(rows);
+      final board = GameBoard(rows: rows);
 
       rows[0][0] = 2;
       rows[1] = [4, 4, 4, 4];
@@ -80,7 +85,7 @@ void main() {
 
     test('copies shared input rows', () {
       final row = <int?>[2, null, null, null];
-      final board = GameBoard(List.filled(_classicBoardSize, row));
+      final board = GameBoard(rows: List.filled(_classicBoardSize, row));
 
       row[0] = 4;
 
@@ -88,7 +93,7 @@ void main() {
     });
 
     test('prevents external modifications at both list levels', () {
-      final board = GameBoard(_emptyRows());
+      final board = GameBoard(rows: _emptyRows());
 
       expect(() => board.rows[0][0] = 4, throwsUnsupportedError);
       expect(() => board.rows[0].add(4), throwsUnsupportedError);
@@ -104,9 +109,9 @@ void main() {
         final rows = _emptyRows();
         rows[0] = [2, 4, null, null];
 
-        final first = GameBoard(rows);
-        final second = GameBoard(rows);
-        final third = GameBoard(rows);
+        final first = GameBoard(rows: rows);
+        final second = GameBoard(rows: rows);
+        final third = GameBoard(rows: rows);
 
         expect(first, same(first));
         expect(first == first, isTrue);
@@ -120,13 +125,17 @@ void main() {
         expect({first: 'saved'}[second], 'saved');
       });
 
-      for (var row = 0; row < _classicBoardSize; row++) {
-        for (var column = 0; column < _classicBoardSize; column++) {
-          test('includes cell ($row, $column)', () {
-            final empty = GameBoard(_emptyRows());
+      for (var rowIndex = 0; rowIndex < _classicBoardSize; rowIndex++) {
+        for (
+          var columnIndex = 0;
+          columnIndex < _classicBoardSize;
+          columnIndex++
+        ) {
+          test('includes cell ($rowIndex, $columnIndex)', () {
+            final empty = GameBoard(rows: _emptyRows());
             final rows = _emptyRows();
-            rows[row][column] = 0;
-            final occupied = GameBoard(rows);
+            rows[rowIndex][columnIndex] = 0;
+            final occupied = GameBoard(rows: rows);
 
             expect(empty == occupied, isFalse);
             expect(occupied == empty, isFalse);
@@ -141,18 +150,25 @@ void main() {
         final differentRows = _emptyRows();
         differentRows[0] = [4, 2, null, null];
 
-        expect(GameBoard(firstRows), isNot(GameBoard(differentRows)));
+        expect(
+          GameBoard(rows: firstRows),
+          isNot(GameBoard(rows: differentRows)),
+        );
       });
 
       test('distinguishes different board shapes', () {
-        final first = GameBoard([
-          [1, 2, 3, 4],
-        ]);
+        final first = GameBoard(
+          rows: [
+            [1, 2, 3, 4],
+          ],
+        );
 
-        final second = GameBoard([
-          [1, 2],
-          [3, 4],
-        ]);
+        final second = GameBoard(
+          rows: [
+            [1, 2],
+            [3, 4],
+          ],
+        );
 
         expect(first, isNot(second));
       });
@@ -160,7 +176,7 @@ void main() {
       test('does not equate a board with raw rows or another object', () {
         final rows = _emptyRows();
         final Object rawRows = rows;
-        final board = GameBoard(rows);
+        final board = GameBoard(rows: rows);
 
         expect(board == rawRows, isFalse);
         expect(board == Object(), isFalse);
@@ -168,8 +184,8 @@ void main() {
 
       test('remains stable after constructor input changes', () {
         final rows = _emptyRows();
-        final board = GameBoard(rows);
-        final equalBoard = GameBoard(rows);
+        final board = GameBoard(rows: rows);
+        final equalBoard = GameBoard(rows: rows);
         final saved = {board: 'saved'};
         final hash = board.hashCode;
 
@@ -181,6 +197,32 @@ void main() {
         expect(saved[equalBoard], 'saved');
       });
     });
+  });
+
+  group('GameBoard.empty', () {
+    test('creates a rectangular board with every cell empty', () {
+      final board = GameBoard.empty(rowCount: 2, columnCount: 3);
+
+      expect(board.rows, [
+        [null, null, null],
+        [null, null, null],
+      ]);
+    });
+
+    for (final (rowCount, columnCount) in [(0, 2), (-1, 2), (2, 0), (2, -1)]) {
+      test('rejects dimensions ${rowCount}x$columnCount', () {
+        expect(
+          () => GameBoard.empty(rowCount: rowCount, columnCount: columnCount),
+          throwsA(
+            isA<ArgumentError>().having(
+              (error) => error.message,
+              'message',
+              'Game board dimensions must be positive.',
+            ),
+          ),
+        );
+      });
+    }
   });
 }
 
