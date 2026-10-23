@@ -118,7 +118,7 @@ void main() {
   });
 
   group('GameState.move', () {
-    final lineCases = <({String name, List<int?> input, List<int?> output})>[
+    const lineCases = <({String name, List<int?> input, List<int?> output})>[
       (
         name: 'slides across empty cells',
         input: [null, 1, null, 2],
@@ -288,7 +288,7 @@ void main() {
     });
 
     group('variable board dimensions', () {
-      final rectangularResults = <MoveDirection, List<List<int?>>>{
+      const rectangularResults = <MoveDirection, List<List<int?>>>{
         MoveDirection.left: [
           [2, null, null],
           [1, 2, 1],
@@ -327,7 +327,7 @@ void main() {
         });
       }
 
-      final singleLineCases = [
+      const singleLineCases = [
         (
           name: 'single row',
           rows: [
@@ -460,6 +460,50 @@ void main() {
     });
 
     group('spawning', () {
+      for (final (emptyCellIndex, expectedRows) in const [
+        (
+          0,
+          [
+            [1, 2, 1],
+            [3, null, null],
+          ],
+        ),
+        (
+          1,
+          [
+            [1, 2, null],
+            [3, 1, null],
+          ],
+        ),
+        (
+          2,
+          [
+            [1, 2, null],
+            [3, null, 1],
+          ],
+        ),
+      ]) {
+        test('selects sparse empty cell $emptyCellIndex in row order', () {
+          final state = GameState(
+            board: GameBoard(
+              rows: [
+                [null, 1, 2],
+                [null, 3, null],
+              ],
+            ),
+          );
+          final random = _ControlledRandom(emptyCellIndex: emptyCellIndex);
+
+          final next = state.move(
+            direction: MoveDirection.left,
+            random: random,
+          );
+
+          expect(next.board.rows, expectedRows);
+          expect(random.calls, ['nextInt(3)', 'nextDouble']);
+        });
+      }
+
       for (final (roll, level) in [
         (0.0, 3),
         (0.249999999, 3),
@@ -601,7 +645,7 @@ void main() {
       );
       var state = initial;
       final random = _ControlledRandom(emptyCellIndex: 0, levelRoll: 0.9);
-      final turns = [
+      const turns = [
         (
           direction: MoveDirection.left,
           rows: [

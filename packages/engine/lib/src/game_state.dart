@@ -6,8 +6,8 @@ import 'package:engine/src/move_direction.dart';
 
 /// An immutable game snapshot with validated tile levels and dimensions.
 ///
-/// Each spawn draws `nextInt(emptyCellCount)` to select an empty cell in
-/// row-major order, then `nextDouble()` to select a level using
+/// Each spawn draws `nextInt(emptyCellCount)` to index empty cells enumerated
+/// in row-major order, then `nextDouble()` to select a level using
 /// [GameConfiguration.spawnWeights].
 final class GameState {
   new({required this.board, GameConfiguration? configuration})
@@ -64,6 +64,7 @@ final class GameState {
   /// Slides and merges tiles, then spawns one tile only if the board changed.
   ///
   /// Returns this state without drawing from [random] when nothing moves.
+  /// Changed moves return a new state with the same configuration instance.
   /// The caller owns [random]; reuse it across turns to advance its sequence.
   GameState move({required MoveDirection direction, required Random random}) {
     final movement = _BoardMovement(maxTileLevel: configuration.maxTileLevel);
@@ -123,13 +124,7 @@ final class _BoardMovement {
   }
 
   List<List<int?>> _moveLeft({required List<List<int?>> rows}) {
-    final movedRows = <List<int?>>[];
-
-    for (final row in rows) {
-      movedRows.add(_mergeLine(line: row));
-    }
-
-    return movedRows;
+    return [for (final row in rows) _mergeLine(line: row)];
   }
 
   List<List<int?>> _moveRight({required List<List<int?>> rows}) {
@@ -160,19 +155,10 @@ final class _BoardMovement {
   }
 
   List<List<int?>> _transpose({required List<List<int?>> rows}) {
-    final transposedRows = <List<int?>>[];
-
-    for (var columnIndex = 0; columnIndex < rows.first.length; columnIndex++) {
-      final column = <int?>[];
-
-      for (var rowIndex = 0; rowIndex < rows.length; rowIndex++) {
-        column.add(rows[rowIndex][columnIndex]);
-      }
-
-      transposedRows.add(column);
-    }
-
-    return transposedRows;
+    return [
+      for (var columnIndex = 0; columnIndex < rows.first.length; columnIndex++)
+        [for (final row in rows) row[columnIndex]],
+    ];
   }
 }
 
@@ -182,20 +168,17 @@ final class _TileSpawner {
   final Map<int, int> _spawnWeights;
 
   GameBoard spawn({required GameBoard board, required Random random}) {
-    final emptyPositions = <({int rowIndex, int columnIndex})>[];
-
-    for (var rowIndex = 0; rowIndex < board.rowCount; rowIndex++) {
-      for (
-        var columnIndex = 0;
-        columnIndex < board.columnCount;
-        columnIndex++
-      ) {
-        if (board.tileAt(rowIndex: rowIndex, columnIndex: columnIndex) ==
-            null) {
-          emptyPositions.add((rowIndex: rowIndex, columnIndex: columnIndex));
-        }
-      }
-    }
+    final emptyPositions = [
+      for (var rowIndex = 0; rowIndex < board.rowCount; rowIndex++)
+        for (
+          var columnIndex = 0;
+          columnIndex < board.columnCount;
+          columnIndex++
+        )
+          if (board.tileAt(rowIndex: rowIndex, columnIndex: columnIndex) ==
+              null)
+            (rowIndex: rowIndex, columnIndex: columnIndex),
+    ];
 
     if (emptyPositions.isEmpty) {
       throw StateError('Cannot spawn a tile on a full board.');
