@@ -19,6 +19,19 @@ final class GameState {
         'Game configuration dimensions must match the board.',
       );
     }
+
+    for (final row in board.rows) {
+      for (final level in row) {
+        if (level != null &&
+            (level < 1 || level > this.configuration.maxTileLevel)) {
+          throw ArgumentError.value(
+            level,
+            'board',
+            'Tile level is outside the configured evolution range.',
+          );
+        }
+      }
+    }
   }
 
   factory start({
@@ -30,8 +43,10 @@ final class GameState {
       columnCount: configuration.columnCount,
     );
 
+    final spawner = _TileSpawner(configuration);
+
     for (var index = 0; index < configuration.initialTileCount; index++) {
-      board = _spawnTile(board, random, configuration.spawnWeights);
+      board = spawner.spawn(board, random);
     }
 
     return GameState(board, configuration: configuration);
@@ -45,155 +60,169 @@ final class GameState {
   /// Returns this state without drawing from [random] when nothing moves.
   /// The caller owns [random]; reuse it across turns to advance its sequence.
   GameState move(MoveDirection direction, {required Random random}) {
-    final movedBoard = _moveBoard(board, direction);
+    final movement = _BoardMovement(configuration);
+    final movedBoard = movement.move(board, direction);
 
     if (board == movedBoard) {
       return this;
     }
 
-    final nextBoard = _spawnTile(
-      movedBoard,
-      random,
-      configuration.spawnWeights,
-    );
+    final spawner = _TileSpawner(configuration);
+    final nextBoard = spawner.spawn(movedBoard, random);
 
     return GameState(nextBoard, configuration: configuration);
   }
 }
 
-GameBoard _moveBoard(GameBoard board, MoveDirection direction) {
-  return GameBoard(switch (direction) {
-    MoveDirection.left => _moveLeft(board.rows),
-    MoveDirection.right => _moveRight(board.rows),
-    MoveDirection.up => _moveUp(board.rows),
-    MoveDirection.down => _moveDown(board.rows),
-  });
-}
+final class _BoardMovement {
+  const new(this._configuration);
 
-List<int?> _mergeRow(List<int?> row) {
-  final tiles = row.whereType<int>().toList();
-  final result = <int?>[];
-  var index = 0;
+  final GameConfiguration _configuration;
 
-  while (index < tiles.length) {
-    final current = tiles[index];
-
-    if (index + 1 < tiles.length && current == tiles[index + 1]) {
-      result.add(current * 2);
-      index += 2;
-    } else {
-      result.add(current);
-      index += 1;
-    }
+  GameBoard move(GameBoard board, MoveDirection direction) {
+    return GameBoard(switch (direction) {
+      MoveDirection.left => _moveLeft(board.rows),
+      MoveDirection.right => _moveRight(board.rows),
+      MoveDirection.up => _moveUp(board.rows),
+      MoveDirection.down => _moveDown(board.rows),
+    });
   }
 
-  while (result.length < row.length) {
-    result.add(null);
-  }
+  List<int?> _mergeRow(List<int?> row) {
+    final tiles = row.whereType<int>().toList();
+    final result = <int?>[];
+    var index = 0;
 
-  return result;
-}
+    while (index < tiles.length) {
+      final current = tiles[index];
 
-List<List<int?>> _moveLeft(List<List<int?>> board) {
-  final movedBoard = <List<int?>>[];
-
-  for (final row in board) {
-    movedBoard.add(_mergeRow(row));
-  }
-
-  return movedBoard;
-}
-
-List<List<int?>> _moveRight(List<List<int?>> board) {
-  final movedBoard = <List<int?>>[];
-
-  for (final row in board) {
-    final reversedRow = row.reversed.toList();
-    final mergedRow = _mergeRow(reversedRow);
-
-    movedBoard.add(mergedRow.reversed.toList());
-  }
-
-  return movedBoard;
-}
-
-List<List<int?>> _moveUp(List<List<int?>> board) {
-  final columns = _transpose(board);
-  final movedColumns = _moveLeft(columns);
-
-  return _transpose(movedColumns);
-}
-
-List<List<int?>> _moveDown(List<List<int?>> board) {
-  final columns = _transpose(board);
-  final movedColumns = _moveRight(columns);
-
-  return _transpose(movedColumns);
-}
-
-List<List<int?>> _transpose(List<List<int?>> board) {
-  final transposedBoard = <List<int?>>[];
-
-  for (var columnIndex = 0; columnIndex < board.first.length; columnIndex++) {
-    final column = <int?>[];
-
-    for (var rowIndex = 0; rowIndex < board.length; rowIndex++) {
-      column.add(board[rowIndex][columnIndex]);
-    }
-
-    transposedBoard.add(column);
-  }
-
-  return transposedBoard;
-}
-
-GameBoard _spawnTile(
-  GameBoard board,
-  Random random,
-  Map<int, int> spawnWeights,
-) {
-  final emptyPositions = <({int rowIndex, int columnIndex})>[];
-
-  for (var rowIndex = 0; rowIndex < board.rowCount; rowIndex++) {
-    for (var columnIndex = 0; columnIndex < board.columnCount; columnIndex++) {
-      if (board.tileAt(rowIndex, columnIndex) == null) {
-        emptyPositions.add((rowIndex: rowIndex, columnIndex: columnIndex));
+      if (index + 1 < tiles.length &&
+          current == tiles[index + 1] &&
+          current < _configuration.maxTileLevel) {
+        result.add(current + 1);
+        index += 2;
+      } else {
+        result.add(current);
+        index += 1;
       }
     }
+
+    while (result.length < row.length) {
+      result.add(null);
+    }
+
+    return result;
   }
 
-  if (emptyPositions.isEmpty) {
-    throw StateError('Cannot spawn a tile on a full board.');
+  List<List<int?>> _moveLeft(List<List<int?>> board) {
+    final movedBoard = <List<int?>>[];
+
+    for (final row in board) {
+      movedBoard.add(_mergeRow(row));
+    }
+
+    return movedBoard;
   }
 
-  final position = emptyPositions[random.nextInt(emptyPositions.length)];
-  final value = _selectSpawnValue(spawnWeights, random);
+  List<List<int?>> _moveRight(List<List<int?>> board) {
+    final movedBoard = <List<int?>>[];
 
-  final nextRows = <List<int?>>[
-    for (final row in board.rows) [...row],
-  ];
+    for (final row in board) {
+      final reversedRow = row.reversed.toList();
+      final mergedRow = _mergeRow(reversedRow);
 
-  nextRows[position.rowIndex][position.columnIndex] = value;
+      movedBoard.add(mergedRow.reversed.toList());
+    }
 
-  return GameBoard(nextRows);
+    return movedBoard;
+  }
+
+  List<List<int?>> _moveUp(List<List<int?>> board) {
+    final columns = _transpose(board);
+    final movedColumns = _moveLeft(columns);
+
+    return _transpose(movedColumns);
+  }
+
+  List<List<int?>> _moveDown(List<List<int?>> board) {
+    final columns = _transpose(board);
+    final movedColumns = _moveRight(columns);
+
+    return _transpose(movedColumns);
+  }
+
+  List<List<int?>> _transpose(List<List<int?>> board) {
+    final transposedBoard = <List<int?>>[];
+
+    for (var columnIndex = 0; columnIndex < board.first.length; columnIndex++) {
+      final column = <int?>[];
+
+      for (var rowIndex = 0; rowIndex < board.length; rowIndex++) {
+        column.add(board[rowIndex][columnIndex]);
+      }
+
+      transposedBoard.add(column);
+    }
+
+    return transposedBoard;
+  }
 }
 
-int _selectSpawnValue(Map<int, int> spawnWeights, Random random) {
-  final totalWeight = spawnWeights.values.fold(
-    0,
-    (sum, weight) => sum + weight,
-  );
+final class _TileSpawner {
+  const new(this._configuration);
 
-  final roll = random.nextDouble() * totalWeight;
-  var cumulativeWeight = 0;
+  final GameConfiguration _configuration;
 
-  for (final entry in spawnWeights.entries) {
-    cumulativeWeight += entry.value;
+  GameBoard spawn(GameBoard board, Random random) {
+    final emptyPositions = <({int rowIndex, int columnIndex})>[];
 
-    if (roll < cumulativeWeight) {
-      return entry.key;
+    for (var rowIndex = 0; rowIndex < board.rowCount; rowIndex++) {
+      for (
+        var columnIndex = 0;
+        columnIndex < board.columnCount;
+        columnIndex++
+      ) {
+        if (board.tileAt(rowIndex, columnIndex) == null) {
+          emptyPositions.add((rowIndex: rowIndex, columnIndex: columnIndex));
+        }
+      }
     }
+
+    if (emptyPositions.isEmpty) {
+      throw StateError('Cannot spawn a tile on a full board.');
+    }
+
+    final position = emptyPositions[random.nextInt(emptyPositions.length)];
+    final level = _selectLevel(random);
+
+    final nextRows = <List<int?>>[
+      for (final row in board.rows) [...row],
+    ];
+
+    nextRows[position.rowIndex][position.columnIndex] = level;
+
+    return GameBoard(nextRows);
   }
 
-  throw StateError('Cannot select a spawn value.');
+  int _selectLevel(Random random) {
+    final spawnWeights = _configuration.spawnWeights;
+
+    final totalWeight = spawnWeights.values.fold(
+      0,
+      (sum, weight) => sum + weight,
+    );
+
+    final roll = random.nextDouble() * totalWeight;
+    var cumulativeWeight = 0;
+
+    for (final entry in spawnWeights.entries) {
+      cumulativeWeight += entry.value;
+
+      if (roll < cumulativeWeight) {
+        return entry.key;
+      }
+    }
+
+    throw StateError('Cannot select a spawn value.');
+  }
 }

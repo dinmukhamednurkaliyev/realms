@@ -3,7 +3,8 @@ final class GameConfiguration {
     this.rowCount = 4,
     this.columnCount = 4,
     this.initialTileCount = 2,
-    Map<int, int> spawnWeights = const {2: 9, 4: 1},
+    this.maxTileLevel = 50,
+    Map<int, int> spawnWeights = const {1: 9, 2: 1},
   }) : spawnWeights = Map<int, int>.unmodifiable(spawnWeights) {
     if (rowCount <= 0) {
       throw ArgumentError.value(
@@ -29,16 +30,29 @@ final class GameConfiguration {
       );
     }
 
+    if (maxTileLevel < 1) {
+      throw ArgumentError.value(
+        maxTileLevel,
+        'maxTileLevel',
+        'Must be greater than zero.',
+      );
+    }
+
     if (this.spawnWeights.isEmpty ||
         this.spawnWeights.entries.any(
-          (entry) => entry.key <= 0 || entry.value <= 0,
+          (entry) =>
+              entry.key < 1 || entry.key > maxTileLevel || entry.value <= 0,
         )) {
-      throw ArgumentError('Spawn values and weights must be positive.');
+      throw ArgumentError(
+        'Spawn levels must be within the evolution range '
+        'and weights must be positive.',
+      );
     }
   }
 
   final int rowCount;
   final int columnCount;
   final int initialTileCount;
+  final int maxTileLevel;
   final Map<int, int> spawnWeights;
 }
