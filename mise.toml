@@ -2,7 +2,7 @@
 # Development Tools
 
 [tools]
-flutter = "3.47.7"
+flutter = "3.47.8"
 java = "21.0.2"
 typos = "1.51.1"
 
@@ -24,15 +24,15 @@ run = "flutter pub outdated"
 [tasks."dependencies:sort"]
 description = "Sort dependencies in all pubspec files"
 run = [
-  "dart run dependency_sorter",
-  "dart run dependency_sorter --path packages/engine",
+  'FLUTTER_ROOT="$(mise where flutter)" dart run dependency_sorter',
+  'FLUTTER_ROOT="$(mise where flutter)" dart run dependency_sorter --path packages/engine',
 ]
 
 [tasks."dependencies:check-order"]
 description = "Check dependency ordering in all pubspec files"
 run = [
-  "dart run dependency_sorter --check",
-  "dart run dependency_sorter --check --path packages/engine",
+  'FLUTTER_ROOT="$(mise where flutter)" dart run dependency_sorter --check',
+  'FLUTTER_ROOT="$(mise where flutter)" dart run dependency_sorter --check --path packages/engine',
 ]
 
 

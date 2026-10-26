@@ -4,6 +4,7 @@ final class GameConfiguration {
     this.columnCount = 4,
     this.initialTileCount = 2,
     this.maxTileLevel = 50,
+    this.mergeScoreMultiplier = 10,
     Map<int, int> spawnWeights = const {1: 9, 2: 1},
   }) : spawnWeights = Map<int, int>.unmodifiable(spawnWeights) {
     if (rowCount <= 0) {
@@ -38,6 +39,14 @@ final class GameConfiguration {
       );
     }
 
+    if (mergeScoreMultiplier <= 0) {
+      throw ArgumentError.value(
+        mergeScoreMultiplier,
+        'mergeScoreMultiplier',
+        'Must be greater than zero.',
+      );
+    }
+
     if (this.spawnWeights.isEmpty ||
         this.spawnWeights.entries.any(
           (entry) =>
@@ -54,10 +63,11 @@ final class GameConfiguration {
   final int columnCount;
   final int initialTileCount;
   final int maxTileLevel;
+  final int mergeScoreMultiplier;
 
   /// An immutable map of relative spawn weights by tile level.
   ///
-  /// Iteration order is preserved from the supplied map and affects which level
-  /// a given random draw selects.
+  /// Iteration order is preserved from the supplied map and affects which
+  /// level a given random draw selects.
   final Map<int, int> spawnWeights;
 }

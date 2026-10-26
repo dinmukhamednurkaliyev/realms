@@ -17,12 +17,19 @@ final class GameBoard {
       throw ArgumentError('Game board dimensions must be positive.');
     }
 
-    return GameBoard(
-      rows: List.generate(
-        rowCount,
-        (_) => List<int?>.filled(columnCount, null),
-      ),
-    );
+    final rows = <List<int?>>[];
+
+    for (var rowIndex = 0; rowIndex < rowCount; rowIndex++) {
+      final row = <int?>[];
+
+      for (var columnIndex = 0; columnIndex < columnCount; columnIndex++) {
+        row.add(null);
+      }
+
+      rows.add(row);
+    }
+
+    return GameBoard(rows: rows);
   }
 
   final List<List<int?>> _rows;
