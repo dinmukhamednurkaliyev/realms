@@ -9,11 +9,7 @@ typedef TilePosition = ({int rowIndex, int columnIndex});
 
 /// A tile moving from one position to another.
 final class TileMovement {
-  const TileMovement({
-    required this.from,
-    required this.to,
-    required this.level,
-  });
+  const new({required this.from, required this.to, required this.level});
 
   final TilePosition from;
   final TilePosition to;
@@ -22,7 +18,7 @@ final class TileMovement {
 
 /// Two tiles merging into one higher-level tile.
 final class TileMerge {
-  const TileMerge({
+  const new({
     required this.first,
     required this.second,
     required this.destination,
@@ -37,7 +33,7 @@ final class TileMerge {
 
 /// A new tile appearing after a successful move.
 final class TileSpawn {
-  const TileSpawn({required this.position, required this.level});
+  const new({required this.position, required this.level});
 
   final TilePosition position;
   final int level;
@@ -45,7 +41,7 @@ final class TileSpawn {
 
 /// The outcome of a single attempted move.
 final class GameMoveResult {
-  GameMoveResult._({
+  new _({
     required this.state,
     required this.changed,
     required this.scoreGained,
