@@ -137,6 +137,35 @@ final class GameState {
   /// Total points accumulated since the game began.
   final int score;
 
+  /// Whether any movement direction can change the current board.
+  ///
+  /// Uses the same merge rules as [moveWithResult], including the maximum
+  /// tile level. This check does not spawn tiles or use randomness.
+  /// An entirely empty board has no available moves.
+  bool get canMove {
+    final boardMovement = BoardMovement(
+      maxTileLevel: configuration.maxTileLevel,
+    );
+
+    for (final direction in MoveDirection.values) {
+      final movementResult = boardMovement.move(
+        board: board,
+        direction: direction,
+      );
+
+      if (movementResult.board != board) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  /// Whether the board has no available moves.
+  ///
+  /// This indicates a blocked board, not a campaign victory condition.
+  bool get isGameOver => !canMove;
+
   /// Performs a move and returns its next state without event details.
   ///
   /// This delegates to [moveWithResult], so both methods have identical
