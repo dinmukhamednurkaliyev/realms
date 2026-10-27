@@ -1,4 +1,16 @@
+/// Immutable rules used when starting, restoring, or progressing a game.
+///
+/// Board dimensions, merge limits, scoring, and tile spawning are fixed for
+/// the lifetime of a game state. A configuration can be shared across states.
 final class GameConfiguration {
+  /// Creates validated game rules, with 4x4 classic-style defaults.
+  ///
+  /// [spawnWeights] maps each possible initial tile level to a positive
+  /// relative weight. Every spawn level must not exceed [maxTileLevel].
+  /// The map is copied to prevent changes after construction.
+  ///
+  /// To set [maxTileLevel] to 1, also supply a compatible weight map,
+  /// such as `{1: 1}`, instead of relying on the default `{1: 9, 2: 1}`.
   new({
     this.rowCount = 4,
     this.columnCount = 4,
@@ -59,15 +71,26 @@ final class GameConfiguration {
     }
   }
 
+  /// Number of rows in the board.
   final int rowCount;
+
+  /// Number of columns in the board.
   final int columnCount;
+
+  /// Number of tiles placed at the beginning of a game.
   final int initialTileCount;
+
+  /// Highest allowed tile level; tiles at this level cannot merge again.
   final int maxTileLevel;
+
+  /// Multiplier for the points awarded by a merge.
+  ///
+  /// Merging into level `n` awards `mergeScoreMultiplier * n * n` points.
   final int mergeScoreMultiplier;
 
-  /// An immutable map of relative spawn weights by tile level.
+  /// Immutable relative spawn weights, keyed by tile level.
   ///
-  /// Iteration order is preserved from the supplied map and affects which
-  /// level a given random draw selects.
+  /// Map iteration order defines which levels correspond to each part of
+  /// the weighted random range; preserve it for deterministic replays.
   final Map<int, int> spawnWeights;
 }

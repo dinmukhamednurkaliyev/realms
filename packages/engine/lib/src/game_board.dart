@@ -1,8 +1,12 @@
-/// An immutable rectangular grid, compared by tile values.
+/// An immutable, non-empty rectangular grid of tile levels.
 ///
-/// Null denotes an empty cell.
-/// Integer tile values are preserved as supplied.
+/// A `null` cell is empty. The board preserves any supplied integer, leaving
+/// the validation of playable tile levels to `GameState`.
+/// Two boards are equal when they have the same shape and cell values.
 final class GameBoard {
+  /// Creates a board by deeply copying and freezing [rows].
+  ///
+  /// Throws an [ArgumentError] if the grid is empty or not rectangular.
   new({required List<List<int?>> rows})
     : _rows = List<List<int?>>.unmodifiable(rows.map(List<int?>.unmodifiable)) {
     if (_rows.isEmpty ||
@@ -12,6 +16,9 @@ final class GameBoard {
     }
   }
 
+  /// Creates an empty board with the requested number of rows and columns.
+  ///
+  /// Throws an [ArgumentError] when either dimension is not positive.
   factory empty({required int rowCount, required int columnCount}) {
     if (rowCount <= 0 || columnCount <= 0) {
       throw ArgumentError('Game board dimensions must be positive.');
@@ -34,12 +41,18 @@ final class GameBoard {
 
   final List<List<int?>> _rows;
 
+  /// The number of horizontal rows in the board.
   int get rowCount => _rows.length;
 
+  /// The number of cells in every row.
   int get columnCount => _rows.first.length;
 
+  /// An unmodifiable view of the board, including its individual rows.
   List<List<int?>> get rows => _rows;
 
+  /// Returns the level at the given zero-based indices, or `null` if empty.
+  ///
+  /// Throws a [RangeError] if either index falls outside the board.
   int? tileAt({required int rowIndex, required int columnIndex}) {
     return _rows[rowIndex][columnIndex];
   }
