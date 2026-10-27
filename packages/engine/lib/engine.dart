@@ -1,13 +1,13 @@
-/// The framework-independent public API for the Realms game engine.
+/// The Flutter-independent public API of the Realms game engine.
 ///
-/// Consumers can create or restore a `GameState`, perform moves, and render
-/// the resulting board and events without importing internal algorithms.
+/// Applications can create a `GameState`, perform moves, inspect events and
+/// outcomes, and select campaign levels without importing board algorithms.
 library;
 
-export 'src/game_board.dart' show GameBoard;
-export 'src/game_configuration.dart' show GameConfiguration;
-export 'src/game_events.dart'
-    show TileMerge, TileMovement, TilePosition, TileSpawn;
-export 'src/game_objective.dart' show GameObjective, ReachTileLevelObjective;
-export 'src/game_state.dart' show GameMoveResult, GameState;
-export 'src/move_direction.dart' show MoveDirection;
+export 'src/game/board.dart' show BoardPosition, GameBoard, TilePosition;
+export 'src/game/configuration.dart' show GameConfiguration;
+export 'src/game/events.dart' show TileMerge, TileMovement, TileSpawn;
+export 'src/game/mechanics.dart' show MoveDirection;
+export 'src/game/objectives.dart' show GameObjective, ReachTileLevelObjective;
+export 'src/game/state.dart' show GameMoveResult, GameOutcome, GameState;
+export 'src/modes/campaign.dart' show CampaignLevel;

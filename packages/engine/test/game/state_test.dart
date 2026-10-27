@@ -6,7 +6,7 @@ import 'package:test/test.dart';
 const _classicBoardSize = 4;
 
 void main() {
-  group('GameState', () {
+  group('State snapshots', () {
     final configuration = GameConfiguration(
       rowCount: 1,
       maxTileLevel: 3,
@@ -59,7 +59,7 @@ void main() {
     });
   });
 
-  group('GameState.start', () {
+  group('State initialization', () {
     test('starts with the configured number of tiles', () {
       final configuration = GameConfiguration(rowCount: 2, columnCount: 2);
 
@@ -117,7 +117,7 @@ void main() {
     }
   });
 
-  group('GameState.move', () {
+  group('State transitions', () {
     const lineCases = <({String name, List<int?> input, List<int?> output})>[
       (
         name: 'slides across empty cells',
@@ -239,7 +239,7 @@ void main() {
       });
     }
 
-    group('evolution limits', () {
+    group('tile evolution limits', () {
       final configuration = GameConfiguration(
         rowCount: 1,
         maxTileLevel: 3,
@@ -459,7 +459,7 @@ void main() {
       });
     });
 
-    group('spawning', () {
+    group('tile spawning', () {
       for (final (emptyCellIndex, expectedRows) in const [
         (
           0,

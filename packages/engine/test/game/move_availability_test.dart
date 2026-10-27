@@ -1,9 +1,51 @@
+import 'dart:math';
+
 import 'package:engine/engine.dart';
 import 'package:test/test.dart';
 
 void main() {
-  group('GameState game status', () {
-    test('ends when a full board has no moves or merges', () {
+  group('Move availability', () {
+    for (final (rowCount, columnCount) in [(1, 1), (1, 3), (3, 1), (2, 3)]) {
+      test(
+        'agrees with moves for every small ${rowCount}x$columnCount board',
+        () {
+          const levels = <int?>[null, 1, 2];
+          final configuration = GameConfiguration(
+            rowCount: rowCount,
+            columnCount: columnCount,
+            initialTileCount: 1,
+            maxTileLevel: 2,
+          );
+          final boardCount = pow(levels.length, rowCount * columnCount).toInt();
+
+          for (var boardIndex = 0; boardIndex < boardCount; boardIndex++) {
+            var remaining = boardIndex;
+            final rows = List.generate(
+              rowCount,
+              (_) => List.generate(columnCount, (_) {
+                final level = levels[remaining % levels.length];
+                remaining ~/= levels.length;
+                return level;
+              }),
+            );
+            final state = GameState(
+              board: GameBoard(rows: rows),
+              configuration: configuration,
+            );
+            final results = [
+              for (final direction in MoveDirection.values)
+                state.moveWithResult(direction: direction, random: Random(42)),
+            ];
+            final hasChangedMove = results.any((result) => result.changed);
+
+            expect(state.canMove, hasChangedMove, reason: '$rows');
+            expect(state.isGameOver, !hasChangedMove, reason: '$rows');
+          }
+        },
+      );
+    }
+
+    test('has no available moves on a full blocked board', () {
       final state = GameState(
         board: GameBoard(
           rows: [
@@ -17,7 +59,7 @@ void main() {
       expect(state.isGameOver, isTrue);
     });
 
-    test('continues when adjacent tiles on a full board can merge', () {
+    test('allows merges between adjacent tiles on a full board', () {
       final state = GameState(
         board: GameBoard(
           rows: [
@@ -31,7 +73,7 @@ void main() {
       expect(state.isGameOver, isFalse);
     });
 
-    test('continues when tiles can slide without merging', () {
+    test('allows slides without merging', () {
       final state = GameState(
         board: GameBoard(
           rows: [
@@ -126,7 +168,7 @@ void main() {
       expect(state.isGameOver, isFalse);
     });
 
-    test('checking game status does not change the state', () {
+    test('checking move availability does not change the state', () {
       final board = GameBoard(
         rows: [
           [1, null],

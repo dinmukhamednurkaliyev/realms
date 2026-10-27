@@ -1,3 +1,12 @@
+/// A zero-based position on a game board.
+///
+/// Identifies a cell whether it contains a tile or is empty.
+/// The `rowIndex` increases downward; `columnIndex` increases rightward.
+typedef BoardPosition = ({int rowIndex, int columnIndex});
+
+/// Compatibility name for [BoardPosition].
+typedef TilePosition = BoardPosition;
+
 /// An immutable, non-empty rectangular grid of tile levels.
 ///
 /// A `null` cell is empty. The board preserves any supplied integer, leaving
@@ -24,19 +33,12 @@ final class GameBoard {
       throw ArgumentError('Game board dimensions must be positive.');
     }
 
-    final rows = <List<int?>>[];
-
-    for (var rowIndex = 0; rowIndex < rowCount; rowIndex++) {
-      final row = <int?>[];
-
-      for (var columnIndex = 0; columnIndex < columnCount; columnIndex++) {
-        row.add(null);
-      }
-
-      rows.add(row);
-    }
-
-    return GameBoard(rows: rows);
+    return GameBoard(
+      rows: List.generate(
+        rowCount,
+        (_) => List<int?>.filled(columnCount, null),
+      ),
+    );
   }
 
   final List<List<int?>> _rows;

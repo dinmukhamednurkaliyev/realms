@@ -4,7 +4,7 @@ import 'package:engine/engine.dart';
 import 'package:test/test.dart';
 
 void main() {
-  group('ReachTileLevelObjective', () {
+  group('Tile level objectives', () {
     test('rejects a non-positive target level', () {
       expect(
         () => ReachTileLevelObjective(targetLevel: 0),
@@ -102,7 +102,7 @@ void main() {
     });
   });
 
-  group('Objective and game-over status', () {
+  group('Objective completion', () {
     test('Endless games have no completed objective', () {
       final state = GameState(
         board: GameBoard(
@@ -141,7 +141,7 @@ void main() {
       expect(completedState.hasCompletedObjective, isTrue);
     });
 
-    test('objective completion and game over are independent', () {
+    test('recognizes a completed objective when the board is blocked', () {
       final configuration = GameConfiguration(
         rowCount: 1,
         columnCount: 2,

@@ -2,7 +2,7 @@ import 'package:engine/engine.dart';
 import 'package:test/test.dart';
 
 void main() {
-  group('GameConfiguration', () {
+  group('Configuration', () {
     test('uses default values', () {
       final configuration = GameConfiguration();
 

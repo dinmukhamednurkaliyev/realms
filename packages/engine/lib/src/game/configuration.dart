@@ -1,10 +1,11 @@
-import 'package:engine/src/game_objective.dart';
+import 'package:engine/src/game/objectives.dart';
 
 /// Immutable rules used when starting, restoring, or progressing a game.
 ///
 /// Board dimensions, merge limits, scoring, and tile spawning are fixed for
 /// the lifetime of a game state. A configuration can be shared across states.
 /// An optional [objective] defines success without changing movement rules.
+/// These rules are shared across game modes, including Campaign and Endless.
 final class GameConfiguration {
   /// Creates validated game rules, with 4x4 classic-style defaults.
   ///

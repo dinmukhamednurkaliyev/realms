@@ -4,7 +4,40 @@ import 'package:test/test.dart';
 const _classicBoardSize = 4;
 
 void main() {
-  group('GameBoard', () {
+  test('BoardPosition and TilePosition work with occupied and empty cells', () {
+    final board = GameBoard(
+      rows: [
+        [1, null],
+      ],
+    );
+    const positions = <BoardPosition>[
+      (rowIndex: 0, columnIndex: 0),
+      (rowIndex: 0, columnIndex: 1),
+    ];
+    final compatiblePositions = <TilePosition>[...positions];
+    final movement = TileMovement(
+      from: compatiblePositions.first,
+      to: compatiblePositions.last,
+      level: 1,
+    );
+
+    expect(
+      board.tileAt(
+        rowIndex: movement.from.rowIndex,
+        columnIndex: movement.from.columnIndex,
+      ),
+      1,
+    );
+    expect(
+      board.tileAt(
+        rowIndex: movement.to.rowIndex,
+        columnIndex: movement.to.columnIndex,
+      ),
+      isNull,
+    );
+  });
+
+  group('Board', () {
     test('rejects an empty board', () {
       expect(() => GameBoard(rows: []), throwsArgumentError);
     });
@@ -199,7 +232,7 @@ void main() {
     });
   });
 
-  group('GameBoard.empty', () {
+  group('Empty board construction', () {
     test('creates a rectangular board with every cell empty', () {
       final board = GameBoard.empty(rowCount: 2, columnCount: 3);
 

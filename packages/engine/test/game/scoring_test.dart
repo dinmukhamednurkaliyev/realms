@@ -4,7 +4,7 @@ import 'package:engine/engine.dart';
 import 'package:test/test.dart';
 
 void main() {
-  group('GameState.score', () {
+  group('Scoring', () {
     test('starts with zero points', () {
       final state = GameState.start(
         configuration: GameConfiguration(),

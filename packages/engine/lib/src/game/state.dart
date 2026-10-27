@@ -1,58 +1,23 @@
 import 'dart:math';
 
-import 'package:engine/src/board_movement.dart';
-import 'package:engine/src/game_board.dart';
-import 'package:engine/src/game_configuration.dart';
-import 'package:engine/src/game_events.dart';
-import 'package:engine/src/move_direction.dart';
-import 'package:engine/src/tile_spawner.dart';
+import 'package:engine/src/game/board.dart';
+import 'package:engine/src/game/configuration.dart';
+import 'package:engine/src/game/events.dart';
+import 'package:engine/src/game/mechanics.dart';
 
-/// The immutable outcome of one attempted movement direction.
+/// The current evaluation of victory and move availability.
 ///
-/// [state] is the resulting snapshot. A failed move retains the original
-/// state, earns no points, emits no events, and consumes no random values.
-/// A successful move currently spawns exactly one new tile.
-final class GameMoveResult {
-  new _({
-    required this.state,
-    required this.changed,
-    required this.scoreGained,
-    required List<TileMovement> movements,
-    required List<TileMerge> merges,
-    this.spawnedTile,
-  }) : assert(
-         changed == (spawnedTile != null),
-         'A changed move must spawn a tile, and an unchanged move must not.',
-       ),
-       movements = List<TileMovement>.unmodifiable(movements),
-       merges = List<TileMerge>.unmodifiable(merges),
-       mergedLevels = List<int>.unmodifiable(
-         merges.map((merge) => merge.level),
-       );
+/// Includes [inProgress] for ongoing games. The outcome is derived from the
+/// current snapshot. Completing an objective takes priority over defeat.
+enum GameOutcome {
+  /// No objective has been completed and at least one move is available.
+  inProgress,
 
-  /// The next immutable state, or the original state for an unchanged move.
-  final GameState state;
+  /// The configured game objective has been completed.
+  won,
 
-  /// Whether the attempted move changed the board.
-  final bool changed;
-
-  /// Points awarded by all merges during this move, excluding prior points.
-  final int scoreGained;
-
-  /// Non-stationary tile movements, ordered by processed board line.
-  final List<TileMovement> movements;
-
-  /// Merge events, including the original position of stationary sources.
-  final List<TileMerge> merges;
-
-  /// The tile spawned after this move, or `null` when nothing changed.
-  final TileSpawn? spawnedTile;
-
-  /// Levels produced by this move's merges, in [merges] order.
-  ///
-  /// This is a convenience projection of [merges], not a second source of
-  /// merge data.
-  final List<int> mergedLevels;
+  /// No objective has been completed and no legal move remains.
+  lost,
 }
 
 /// An immutable snapshot of a Realms game at one point in time.
@@ -113,15 +78,17 @@ final class GameState {
       columnCount: configuration.columnCount,
     );
 
-    final spawner = TileSpawner(spawnWeights: configuration.spawnWeights);
-
     for (
       var tileIndex = 0;
       tileIndex < configuration.initialTileCount;
       tileIndex++
     ) {
-      final spawnedTile = spawner.spawn(board: board, random: random);
-      board = spawnedTile.board;
+      final spawnResult = spawnTile(
+        board: board,
+        random: random,
+        spawnWeights: configuration.spawnWeights,
+      );
+      board = spawnResult.board;
     }
 
     return GameState(board: board, configuration: configuration);
@@ -139,32 +106,17 @@ final class GameState {
   /// Whether any movement direction can change the current board.
   ///
   /// Uses the same merge rules as [moveWithResult], including the maximum
-  /// tile level. This check does not spawn tiles or use randomness.
+  /// tile level. Checks adjacent cells without constructing a moved board,
+  /// producing events, or using randomness.
   /// An entirely empty board has no available moves.
-  bool get canMove {
-    final boardMovement = BoardMovement(
-      maxTileLevel: configuration.maxTileLevel,
-    );
-
-    for (final direction in MoveDirection.values) {
-      final movementResult = boardMovement.move(
-        board: board,
-        direction: direction,
-      );
-
-      if (movementResult.board != board) {
-        return true;
-      }
-    }
-
-    return false;
-  }
+  bool get canMove =>
+      canMoveBoard(board: board, maxTileLevel: configuration.maxTileLevel);
 
   /// Whether the configured victory objective is satisfied.
   ///
   /// Returns `false` when no objective is configured, as in Endless mode.
-  /// An achieved objective does not prevent further moves and is independent
-  /// of [isGameOver].
+  /// Completing the objective does not prevent further moves; [outcome]
+  /// and [isGameOver] report that the objective has ended the game.
   bool get hasCompletedObjective {
     final objective = configuration.objective;
 
@@ -175,10 +127,29 @@ final class GameState {
     return objective.isCompleted(board: board, score: score);
   }
 
-  /// Whether the board has no available moves.
+  /// Whether the game is ongoing, won, or lost at this snapshot.
   ///
-  /// This indicates a blocked board, not a campaign victory condition.
-  bool get isGameOver => !canMove;
+  /// Completing the configured objective takes priority over having no
+  /// available moves. A game without an objective can never be won.
+  /// This getter is pure and does not consume randomness.
+  GameOutcome get outcome {
+    if (hasCompletedObjective) {
+      return GameOutcome.won;
+    }
+
+    if (!canMove) {
+      return GameOutcome.lost;
+    }
+
+    return GameOutcome.inProgress;
+  }
+
+  /// Whether the game has ended in either victory or defeat.
+  ///
+  /// A victory can occur while moves remain available. The movement methods
+  /// do not themselves prevent moves after victory; callers decide whether
+  /// to allow continued play.
+  bool get isGameOver => outcome != GameOutcome.inProgress;
 
   /// Performs a move and returns its next state without event details.
   ///
@@ -196,28 +167,25 @@ final class GameState {
     required MoveDirection direction,
     required Random random,
   }) {
-    final boardMovement = BoardMovement(
-      maxTileLevel: configuration.maxTileLevel,
-    );
-    final movementResult = boardMovement.move(
+    final movementResult = moveBoard(
       board: board,
       direction: direction,
+      maxTileLevel: configuration.maxTileLevel,
     );
 
     if (movementResult.board == board) {
       return GameMoveResult._(
         state: this,
-        changed: false,
         scoreGained: 0,
         movements: const [],
         merges: const [],
       );
     }
 
-    final tileSpawner = TileSpawner(spawnWeights: configuration.spawnWeights);
-    final spawnResult = tileSpawner.spawn(
+    final spawnResult = spawnTile(
       board: movementResult.board,
       random: random,
+      spawnWeights: configuration.spawnWeights,
     );
 
     var scoreGained = 0;
@@ -235,11 +203,55 @@ final class GameState {
 
     return GameMoveResult._(
       state: nextState,
-      changed: true,
       scoreGained: scoreGained,
       movements: movementResult.movements,
       merges: movementResult.merges,
       spawnedTile: spawnResult.event,
     );
   }
+}
+
+/// The immutable result of one attempted move.
+///
+/// [state] is the resulting snapshot. A failed move retains the original
+/// state, earns no points, emits no events, and consumes no random values.
+/// A successful move currently spawns exactly one new tile.
+final class GameMoveResult {
+  new _({
+    required this.state,
+    required this.scoreGained,
+    required List<TileMovement> movements,
+    required List<TileMerge> merges,
+    this.spawnedTile,
+  }) : movements = List<TileMovement>.unmodifiable(movements),
+       merges = List<TileMerge>.unmodifiable(merges),
+       mergedLevels = List<int>.unmodifiable(
+         merges.map((merge) => merge.level),
+       );
+
+  /// The next immutable state, or the original state for an unchanged move.
+  final GameState state;
+
+  /// Whether the attempted move changed the board.
+  ///
+  /// Derived from movement and merge events before spawning a new tile.
+  bool get changed => movements.isNotEmpty || merges.isNotEmpty;
+
+  /// Points awarded by all merges during this move, excluding prior points.
+  final int scoreGained;
+
+  /// Non-stationary tile movements, ordered by processed board line.
+  final List<TileMovement> movements;
+
+  /// Merge events, including the original position of stationary sources.
+  final List<TileMerge> merges;
+
+  /// The tile spawned after this move, or `null` when nothing changed.
+  final TileSpawn? spawnedTile;
+
+  /// Levels produced by this move's merges, in [merges] order.
+  ///
+  /// This is a convenience projection of [merges], not a second source of
+  /// merge data.
+  final List<int> mergedLevels;
 }

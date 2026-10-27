@@ -1,7 +1,4 @@
-/// A zero-based position on a game board.
-///
-/// The `rowIndex` increases downward; `columnIndex` increases rightward.
-typedef TilePosition = ({int rowIndex, int columnIndex});
+import 'package:engine/src/game/board.dart';
 
 /// Describes an original tile sliding to a different board position.
 ///
@@ -12,10 +9,10 @@ final class TileMovement {
   const new({required this.from, required this.to, required this.level});
 
   /// The original position of the tile.
-  final TilePosition from;
+  final BoardPosition from;
 
   /// The position reached by the tile.
-  final TilePosition to;
+  final BoardPosition to;
 
   /// The tile's level before merging.
   final int level;
@@ -34,14 +31,14 @@ final class TileMerge {
     required this.level,
   });
 
-  /// The source nearest the destination edge.
-  final TilePosition first;
+  /// The original position of the source nearest the destination edge.
+  final BoardPosition first;
 
-  /// The other source participating in the merge.
-  final TilePosition second;
+  /// The original position of the other source participating in the merge.
+  final BoardPosition second;
 
   /// The location of the merged tile.
-  final TilePosition destination;
+  final BoardPosition destination;
 
   /// The level of the merged tile.
   final int level;
@@ -53,7 +50,7 @@ final class TileSpawn {
   const new({required this.position, required this.level});
 
   /// The empty position selected for the new tile.
-  final TilePosition position;
+  final BoardPosition position;
 
   /// The level selected from the configured spawn weights.
   final int level;

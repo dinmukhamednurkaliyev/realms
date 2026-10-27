@@ -35,7 +35,7 @@ void main() {
     print('Spawned level ${spawn.level} at ${spawn.position}');
   }
   if (state.isGameOver) {
-    print('No legal moves remain.');
+    print('Game ended: ${state.outcome.name}');
   }
 }
 ```
@@ -64,64 +64,101 @@ retain custom rules.
 - Boards, configurations, states, and public event collections are immutable.
   Successful moves retain the same configuration instance. Earlier snapshots
   remain valid.
-- Event positions use zero-based row and column indices. Movement levels are
-  original levels; merge levels are resulting levels. Both merge source
-  positions refer to the board before movement. Stationary sources appear in
-  merge events without redundant movement events. A spawn is a separate event.
-- `hasLegalMoves` checks whether any direction changes the board before spawning.
-  `isGameOver` is its inverse. Empty boards and single cells have no legal moves;
-  full boards may still allow merges. Reaching the maximum level is not victory.
+- `BoardPosition` identifies any cell, occupied or empty, with zero-based row
+  and column indices. `TilePosition` remains a compatible alias for existing
+  consumers.
+- Movement events report original tile levels; merge events report resulting
+  tile levels. Both merge source positions refer to the board before movement.
+  Stationary sources appear in merge events without redundant movement events.
+  A spawn is a separate event.
+- `canMove` checks whether any direction changes the board before spawning.
+  Empty boards and single cells have no legal moves; full boards may still allow
+  merges. Reaching the maximum level alone is not victory.
+- `outcome` is `won` when the configured objective is complete, otherwise `lost`
+  when no moves remain, otherwise `inProgress`. Victory takes priority over a
+  blocked board. `isGameOver` includes both victory and defeat. Moves remain
+  available after victory; the application decides whether to allow them.
+- `CampaignLevel` pairs a positive stage number with a configuration that has an
+  objective. `ReachTileLevelObjective` accepts a tile at or above its target.
+  Custom `GameObjective` implementations must be immutable and deterministic.
+
+Game modes describe the overall way play is organized. Campaign uses
+`CampaignLevel` definitions for its progression stages; a stage's `number` is
+independent of the evolution level stored in each board tile. Endless games can
+use `GameConfiguration` directly without a Campaign stage. Objectives and basic
+mechanics are shared across modes, and `GameState` evaluates them without depending
+on Campaign definitions.
 
 ## Responsibilities and execution
 
-| Component | Responsibility |
+| File | Responsibility |
 | --- | --- |
-| `GameBoard` | Deeply immutable rectangular cells, structural validation, access, equality, and hashing. |
-| `GameConfiguration` | Validated dimensions, evolution limit, initial tile count, spawn weights, and score multiplier. |
-| `GameState` | Validated board/configuration/score snapshot, initialization, transitions, and status queries. |
-| Private `_BoardMovement` | Direction normalization, `_mergeRow`, and movement/merge events. |
-| Private `_TileSpawner` | Empty-cell selection, weighted level selection, and spawn information. |
-| `GameMoveResult` | Immutable next state, change flag, score gain, and events. |
+| [`game/board.dart`](lib/src/game/board.dart) | Board positions, deeply immutable rectangular cells, structural validation, access, equality, and hashing. |
+| [`game/configuration.dart`](lib/src/game/configuration.dart) | Gameplay rule parameters and their validation. |
+| [`game/objectives.dart`](lib/src/game/objectives.dart) | The objective contract and tile-level objective implementation. |
+| [`game/events.dart`](lib/src/game/events.dart) | Immutable movement, merge, and spawn descriptions using board positions. |
+| [`game/state.dart`](lib/src/game/state.dart) | Snapshot validation, initialization, outcomes, move results, and transition coordination. |
+| [`game/mechanics.dart`](lib/src/game/mechanics.dart) | Directions, traversal, sliding, merging, spawning, weighted selection, and their event generation. |
+| [`modes/campaign.dart`](lib/src/modes/campaign.dart) | Campaign level definitions composing a configuration and a stage number. |
+
+Import `package:engine/engine.dart` for the supported public API. The source files
+are implementation details. `src/game/` owns reusable gameplay logic, while
+`src/modes/` owns concrete mode definitions. Dependencies flow from modes into
+game; shared game modules never import concrete modes. Each module is a separate
+Dart library with explicit imports. State transitions depend on mechanics,
+configuration, board, and event values. Mechanics depend on boards and events,
+without importing state or
+configuration. Events and objectives depend only on boards; configuration depends
+on objectives, and Campaign definitions depend on configuration. Configuration
+has no dependency on Campaign. No engine code depends on Flutter or persistence.
+
+Mechanics expose `canMoveBoard`, `moveBoard`, and `spawnTile` for internal state
+coordination. They receive validated boards and rule parameters; movement and
+spawning return immutable board/event records. These functions are public for
+cross-library calls, but `engine.dart` exports only `MoveDirection` from the
+mechanics module. Line merging, coordinate traversal, and weighted selection remain
+library-private. There are no shared `part` files or mechanics wrapper classes.
+
+`GameState` owns when mechanics run, the unchanged-move guard, scoring, outcomes,
+and the next snapshot. Objectives own reusable victory criteria;
+`modes/campaign.dart` owns Campaign stage definitions independently of shared game
+configurations.
+
+Mutable working rows and event lists stay inside those operations; boards and
+public results freeze their collections before exposing them. A move's `changed`
+flag is derived from its movement and merge events, independently of spawning.
+Under the current rules, every changed move also spawns exactly one tile.
 
 A move follows this sequence:
 
 `direction -> movement/merging -> unchanged guard -> spawn -> score -> next state/result`
 
-Status queries reuse the same movement operation for up to four directions,
-stopping at the first changed board. They never spawn, score, or access randomness.
-This also constructs temporary movement results; for small puzzle boards, sharing
-the proven rules is preferable to a separate optimized status algorithm. Status
-is derived on demand, with no stored status or cache to synchronize.
+Status queries scan adjacent cells once, stopping at the first available slide or
+merge. An occupied cell next to an empty cell permits movement; otherwise a pair
+must satisfy the same merge predicate used by actual movement. The query creates
+no moved boards or events and never uses randomness. Empty boards and single
+cells correctly have no moves. Status is derived on demand, without a cache.
 
-## Future systems: decisions still needed
+## Application boundary
 
-- **Endless:** The base loop already continues until no legal moves remain.
-  No mode class or maximum-level victory rule is needed. Difficulty curves and
-  the balance of board sizes, weights, and score rewards require playtesting.
-- **Campaign:** Once objectives are finalized, a stage can pair configuration
-  with explicit objective criteria evaluated against the resulting state.
-  Keep stage identifiers separate from tile levels. Decide objective combination,
-  success/failure precedence, constraints, and progression before implementing.
-- **Biomes:** Visual themes belong in Flutter. Gameplay-affecting biomes need
-  concrete rules first; existing configuration can express only its current
-  dimensions, counts, levels, weights, and multiplier.
-- **Modifiers:** Movement currently supports all four directions and one merge
-  rule; successful moves always spawn once and use the fixed scoring formula.
-  Actual restrictions or changed rules would need focused changes to their
-  owning components and status tests. Do not introduce a generic rule pipeline.
-- **Save/restore and replay:** Persist board, score, configuration, and spawn
-  weight order outside the engine. Snapshot restoration alone does not reproduce
-  future random draws. Reliable replay needs the same random sequence, rule
-  version, and actions. Durable continuation needs a defined reproducible random
-  source/state format or a draw log; a seed alone is not an arbitrary mid-session
-  random-state snapshot. No persistence or replay infrastructure is supplied.
-- **Flutter animations:** Use movement, merge, and spawn events directly.
-  Animation timing, input coordination, and tile assets remain in Flutter.
+The Flutter entry point is currently empty. Input coordination, random-source
+ownership, rendering, animation timing, campaign selection, and persistence belong
+in the application when needed. Movement, merge, and spawn events already provide
+the domain information needed for rendering a move.
 
-The next milestone is one playable Flutter screen: render the board, accept
-direction input, display score and game over, and restart through `GameState.start`.
+Restoring a snapshot does not reproduce future random draws. Replay requires the
+same random sequence, rules, and actions; a seed alone is not a mid-session random
+state. Persistence must also preserve the configuration's spawn-weight order.
+The engine supplies neither storage nor replay infrastructure.
 
 ## Verification
+
+Tests mirror the domain boundaries: shared game suites live in `test/game/`,
+and Campaign tests live in `test/modes/`. State tests cover complete transitions,
+while mechanics, events, scoring, outcomes, and move availability have focused
+suites. Board, configuration, objectives, and Campaign tests cover their
+respective contracts. CI discovers `*_test.dart` files recursively through the
+same verification task used locally.
 
 From the repository root, run `mise run test:engine` for engine tests.
 Run `mise run fix` and review its changes, then run `mise run verify` for formatting,

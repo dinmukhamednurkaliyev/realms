@@ -1,10 +1,11 @@
-import 'package:engine/src/game_board.dart';
+import 'package:engine/src/game/board.dart';
 
 /// A victory condition evaluated against an immutable game snapshot.
 ///
-/// Objectives describe success independently of available moves. Evaluations
-/// must not mutate the board or depend on randomness. The score is included
-/// so future objective types can use it without changing the evaluation API.
+/// Objectives describe success independently of available moves.
+/// Implementations must be immutable and evaluate the supplied board and score
+/// deterministically, without side effects or randomness, so retained snapshots
+/// remain valid.
 abstract interface class GameObjective {
   /// Whether the given board and accumulated score satisfy this objective.
   bool isCompleted({required GameBoard board, required int score});
