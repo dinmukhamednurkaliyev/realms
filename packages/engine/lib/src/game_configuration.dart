@@ -1,13 +1,17 @@
+import 'package:engine/src/game_objective.dart';
+
 /// Immutable rules used when starting, restoring, or progressing a game.
 ///
 /// Board dimensions, merge limits, scoring, and tile spawning are fixed for
 /// the lifetime of a game state. A configuration can be shared across states.
+/// An optional [objective] defines success without changing movement rules.
 final class GameConfiguration {
   /// Creates validated game rules, with 4x4 classic-style defaults.
   ///
   /// [spawnWeights] maps each possible initial tile level to a positive
   /// relative weight. Every spawn level must not exceed [maxTileLevel].
   /// The map is copied to prevent changes after construction.
+  /// [objective] is optional, allowing Endless games without a victory target.
   ///
   /// To set [maxTileLevel] to 1, also supply a compatible weight map,
   /// such as `{1: 1}`, instead of relying on the default `{1: 9, 2: 1}`.
@@ -17,6 +21,7 @@ final class GameConfiguration {
     this.initialTileCount = 2,
     this.maxTileLevel = 50,
     this.mergeScoreMultiplier = 10,
+    this.objective,
     Map<int, int> spawnWeights = const {1: 9, 2: 1},
   }) : spawnWeights = Map<int, int>.unmodifiable(spawnWeights) {
     if (rowCount <= 0) {
@@ -59,6 +64,17 @@ final class GameConfiguration {
       );
     }
 
+    final configuredObjective = objective;
+
+    if (configuredObjective is ReachTileLevelObjective &&
+        configuredObjective.targetLevel > maxTileLevel) {
+      throw ArgumentError.value(
+        configuredObjective.targetLevel,
+        'objective.targetLevel',
+        'Must not exceed the maximum tile level.',
+      );
+    }
+
     if (this.spawnWeights.isEmpty ||
         this.spawnWeights.entries.any(
           (entry) =>
@@ -87,6 +103,11 @@ final class GameConfiguration {
   ///
   /// Merging into level `n` awards `mergeScoreMultiplier * n * n` points.
   final int mergeScoreMultiplier;
+
+  /// Optional victory condition; `null` means there is no objective.
+  ///
+  /// This is independent of whether the board has any available moves.
+  final GameObjective? objective;
 
   /// Immutable relative spawn weights, keyed by tile level.
   ///

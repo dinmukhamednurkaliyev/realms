@@ -1,0 +1,47 @@
+import 'package:engine/src/game_board.dart';
+
+/// A victory condition evaluated against an immutable game snapshot.
+///
+/// Objectives describe success independently of available moves. Evaluations
+/// must not mutate the board or depend on randomness. The score is included
+/// so future objective types can use it without changing the evaluation API.
+abstract interface class GameObjective {
+  /// Whether the given board and accumulated score satisfy this objective.
+  bool isCompleted({required GameBoard board, required int score});
+}
+
+/// A victory condition requiring at least one tile to reach [targetLevel].
+///
+/// A tile at a higher level also satisfies the objective. The objective can
+/// already be complete when a game starts or a saved game is restored.
+final class ReachTileLevelObjective implements GameObjective {
+  /// Creates a target level, which must be positive.
+  ///
+  /// The game configuration separately checks that the target does not exceed
+  /// its maximum tile level.
+  new({required this.targetLevel}) {
+    if (targetLevel < 1) {
+      throw ArgumentError.value(
+        targetLevel,
+        'targetLevel',
+        'Must be greater than zero.',
+      );
+    }
+  }
+
+  /// The minimum tile level required to complete the objective.
+  final int targetLevel;
+
+  @override
+  bool isCompleted({required GameBoard board, required int score}) {
+    for (final row in board.rows) {
+      for (final level in row) {
+        if (level != null && level >= targetLevel) {
+          return true;
+        }
+      }
+    }
+
+    return false;
+  }
+}

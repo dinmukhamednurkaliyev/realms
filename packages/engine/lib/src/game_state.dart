@@ -121,7 +121,6 @@ final class GameState {
       tileIndex++
     ) {
       final spawnedTile = spawner.spawn(board: board, random: random);
-
       board = spawnedTile.board;
     }
 
@@ -161,6 +160,21 @@ final class GameState {
     return false;
   }
 
+  /// Whether the configured victory objective is satisfied.
+  ///
+  /// Returns `false` when no objective is configured, as in Endless mode.
+  /// An achieved objective does not prevent further moves and is independent
+  /// of [isGameOver].
+  bool get hasCompletedObjective {
+    final objective = configuration.objective;
+
+    if (objective == null) {
+      return false;
+    }
+
+    return objective.isCompleted(board: board, score: score);
+  }
+
   /// Whether the board has no available moves.
   ///
   /// This indicates a blocked board, not a campaign victory condition.
@@ -185,7 +199,6 @@ final class GameState {
     final boardMovement = BoardMovement(
       maxTileLevel: configuration.maxTileLevel,
     );
-
     final movementResult = boardMovement.move(
       board: board,
       direction: direction,
@@ -202,7 +215,6 @@ final class GameState {
     }
 
     final tileSpawner = TileSpawner(spawnWeights: configuration.spawnWeights);
-
     final spawnResult = tileSpawner.spawn(
       board: movementResult.board,
       random: random,
