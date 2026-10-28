@@ -1,15 +1,14 @@
 import 'dart:math';
 
-import 'package:engine/src/game/board.dart';
-import 'package:engine/src/game/configuration.dart';
-import 'package:engine/src/game/events.dart';
-import 'package:engine/src/game/mechanics.dart';
+import 'package:realms/game/engine/board.dart';
+import 'package:realms/game/engine/configuration.dart';
+import 'package:realms/game/engine/events.dart';
+import 'package:realms/game/engine/mechanics.dart' as mechanics;
 
 /// The current evaluation of victory and move availability.
 ///
-/// Includes [inProgress] for ongoing games. The outcome is derived from the
-/// current snapshot. Completing an objective takes priority over defeat.
-enum GameOutcome {
+/// Completing an objective takes priority over defeat.
+enum GameStatus {
   /// No objective has been completed and at least one move is available.
   inProgress,
 
@@ -52,11 +51,11 @@ final class GameState {
     }
 
     for (final row in board.rows) {
-      for (final level in row) {
-        if (level != null &&
-            (level < 1 || level > this.configuration.maxTileLevel)) {
+      for (final tileLevel in row) {
+        if (tileLevel != null &&
+            (tileLevel < 1 || tileLevel > this.configuration.maxTileLevel)) {
           throw ArgumentError.value(
-            level,
+            tileLevel,
             'board',
             'Tile level is outside the configured evolution range.',
           );
@@ -73,7 +72,7 @@ final class GameState {
     required GameConfiguration configuration,
     required Random random,
   }) {
-    var board = GameBoard.empty(
+    var initialBoard = GameBoard.empty(
       rowCount: configuration.rowCount,
       columnCount: configuration.columnCount,
     );
@@ -83,15 +82,15 @@ final class GameState {
       tileIndex < configuration.initialTileCount;
       tileIndex++
     ) {
-      final spawnResult = spawnTile(
-        board: board,
+      final spawnResult = mechanics.spawnTile(
+        board: initialBoard,
         random: random,
         spawnWeights: configuration.spawnWeights,
       );
-      board = spawnResult.board;
+      initialBoard = spawnResult.board;
     }
 
-    return GameState(board: board, configuration: configuration);
+    return GameState(board: initialBoard, configuration: configuration);
   }
 
   /// The current immutable board.
@@ -109,39 +108,34 @@ final class GameState {
   /// tile level. Checks adjacent cells without constructing a moved board,
   /// producing events, or using randomness.
   /// An entirely empty board has no available moves.
-  bool get canMove =>
-      canMoveBoard(board: board, maxTileLevel: configuration.maxTileLevel);
+  bool get hasAvailableMoves => mechanics.hasAvailableMoves(
+    board: board,
+    maxTileLevel: configuration.maxTileLevel,
+  );
 
   /// Whether the configured victory objective is satisfied.
   ///
   /// Returns `false` when no objective is configured, as in Endless mode.
-  /// Completing the objective does not prevent further moves; [outcome]
+  /// Completing the objective does not prevent further moves; [status]
   /// and [isGameOver] report that the objective has ended the game.
-  bool get hasCompletedObjective {
-    final objective = configuration.objective;
-
-    if (objective == null) {
-      return false;
-    }
-
-    return objective.isCompleted(board: board, score: score);
-  }
+  bool get hasCompletedObjective =>
+      configuration.objective?.isCompleted(board: board, score: score) ?? false;
 
   /// Whether the game is ongoing, won, or lost at this snapshot.
   ///
   /// Completing the configured objective takes priority over having no
   /// available moves. A game without an objective can never be won.
   /// This getter is pure and does not consume randomness.
-  GameOutcome get outcome {
+  GameStatus get status {
     if (hasCompletedObjective) {
-      return GameOutcome.won;
+      return GameStatus.won;
     }
 
-    if (!canMove) {
-      return GameOutcome.lost;
+    if (!hasAvailableMoves) {
+      return GameStatus.lost;
     }
 
-    return GameOutcome.inProgress;
+    return GameStatus.inProgress;
   }
 
   /// Whether the game has ended in either victory or defeat.
@@ -149,13 +143,15 @@ final class GameState {
   /// A victory can occur while moves remain available. The movement methods
   /// do not themselves prevent moves after victory; callers decide whether
   /// to allow continued play.
-  bool get isGameOver => outcome != GameOutcome.inProgress;
+  bool get isGameOver => status != GameStatus.inProgress;
 
   /// Performs a move and returns its next state without event details.
   ///
-  /// This delegates to [moveWithResult], so both methods have identical
-  /// gameplay rules and random-number consumption.
-  GameState move({required MoveDirection direction, required Random random}) {
+  /// Has the same gameplay rules and random draws as [moveWithResult].
+  GameState move({
+    required mechanics.MoveDirection direction,
+    required Random random,
+  }) {
     return moveWithResult(direction: direction, random: random).state;
   }
 
@@ -164,10 +160,10 @@ final class GameState {
   /// Steps: slide and merge tiles, return immediately for an unchanged board,
   /// spawn one tile, award points, and construct the next immutable state.
   GameMoveResult moveWithResult({
-    required MoveDirection direction,
+    required mechanics.MoveDirection direction,
     required Random random,
   }) {
-    final movementResult = moveBoard(
+    final movementResult = mechanics.moveBoard(
       board: board,
       direction: direction,
       maxTileLevel: configuration.maxTileLevel,
@@ -182,7 +178,7 @@ final class GameState {
       );
     }
 
-    final spawnResult = spawnTile(
+    final spawnResult = mechanics.spawnTile(
       board: movementResult.board,
       random: random,
       spawnWeights: configuration.spawnWeights,
@@ -206,14 +202,14 @@ final class GameState {
       scoreGained: scoreGained,
       movements: movementResult.movements,
       merges: movementResult.merges,
-      spawnedTile: spawnResult.event,
+      spawnedTile: spawnResult.spawnedTile,
     );
   }
 }
 
 /// The immutable result of one attempted move.
 ///
-/// [state] is the resulting snapshot. A failed move retains the original
+/// [state] is the resulting snapshot. An unchanged move retains the original
 /// state, earns no points, emits no events, and consumes no random values.
 /// A successful move currently spawns exactly one new tile.
 final class GameMoveResult {

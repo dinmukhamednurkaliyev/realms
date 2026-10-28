@@ -1,4 +1,4 @@
-import 'package:engine/src/game/objectives.dart';
+import 'package:realms/game/engine/objectives.dart';
 
 /// Immutable rules used when starting, restoring, or progressing a game.
 ///
@@ -9,7 +9,7 @@ import 'package:engine/src/game/objectives.dart';
 final class GameConfiguration {
   /// Creates validated game rules, with 4x4 classic-style defaults.
   ///
-  /// [spawnWeights] maps each possible initial tile level to a positive
+  /// [spawnWeights] maps each spawnable tile level to a positive
   /// relative weight. Every spawn level must not exceed [maxTileLevel].
   /// The map is copied to prevent changes after construction.
   /// [objective] is optional, allowing Endless games without a victory target.

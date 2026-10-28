@@ -1,10 +1,10 @@
-import 'package:engine/engine.dart';
+import 'package:realms/game/engine.dart';
 import 'package:test/test.dart';
 
 const _classicBoardSize = 4;
 
 void main() {
-  test('BoardPosition and TilePosition work with occupied and empty cells', () {
+  test('BoardPosition identifies occupied and empty cells', () {
     final board = GameBoard(
       rows: [
         [1, null],
@@ -14,10 +14,9 @@ void main() {
       (rowIndex: 0, columnIndex: 0),
       (rowIndex: 0, columnIndex: 1),
     ];
-    final compatiblePositions = <TilePosition>[...positions];
     final movement = TileMovement(
-      from: compatiblePositions.first,
-      to: compatiblePositions.last,
+      from: positions.first,
+      to: positions.last,
       level: 1,
     );
 
@@ -117,10 +116,10 @@ void main() {
     });
 
     test('copies shared input rows', () {
-      final row = <int?>[2, null, null, null];
-      final board = GameBoard(rows: List.filled(_classicBoardSize, row));
+      final sharedRow = <int?>[2, null, null, null];
+      final board = GameBoard(rows: List.filled(_classicBoardSize, sharedRow));
 
-      row[0] = 4;
+      sharedRow[0] = 4;
 
       expect(board.rows, List.filled(_classicBoardSize, [2, null, null, null]));
     });
@@ -165,13 +164,13 @@ void main() {
           columnIndex++
         ) {
           test('includes cell ($rowIndex, $columnIndex)', () {
-            final empty = GameBoard(rows: _emptyRows());
+            final emptyBoard = GameBoard(rows: _emptyRows());
             final rows = _emptyRows();
             rows[rowIndex][columnIndex] = 0;
-            final occupied = GameBoard(rows: rows);
+            final occupiedBoard = GameBoard(rows: rows);
 
-            expect(empty == occupied, isFalse);
-            expect(occupied == empty, isFalse);
+            expect(emptyBoard == occupiedBoard, isFalse);
+            expect(occupiedBoard == emptyBoard, isFalse);
           });
         }
       }
@@ -190,20 +189,20 @@ void main() {
       });
 
       test('distinguishes different board shapes', () {
-        final first = GameBoard(
+        final singleRowBoard = GameBoard(
           rows: [
             [1, 2, 3, 4],
           ],
         );
 
-        final second = GameBoard(
+        final squareBoard = GameBoard(
           rows: [
             [1, 2],
             [3, 4],
           ],
         );
 
-        expect(first, isNot(second));
+        expect(singleRowBoard, isNot(squareBoard));
       });
 
       test('does not equate a board with raw rows or another object', () {
@@ -219,15 +218,15 @@ void main() {
         final rows = _emptyRows();
         final board = GameBoard(rows: rows);
         final equalBoard = GameBoard(rows: rows);
-        final saved = {board: 'saved'};
-        final hash = board.hashCode;
+        final savedBoards = {board: 'saved'};
+        final originalHashCode = board.hashCode;
 
         rows[0][0] = 4;
         rows.clear();
 
         expect(board, equalBoard);
-        expect(board.hashCode, hash);
-        expect(saved[equalBoard], 'saved');
+        expect(board.hashCode, originalHashCode);
+        expect(savedBoards[equalBoard], 'saved');
       });
     });
   });

@@ -22,18 +22,12 @@ description = "Show outdated project dependencies"
 run = "flutter pub outdated"
 
 [tasks."dependencies:sort"]
-description = "Sort dependencies in all pubspec files"
-run = [
-  'FLUTTER_ROOT="$(mise where flutter)" dart run dependency_sorter',
-  'FLUTTER_ROOT="$(mise where flutter)" dart run dependency_sorter --path packages/engine',
-]
+description = "Sort application dependencies"
+run = 'FLUTTER_ROOT="$(mise where flutter)" dart run dependency_sorter'
 
 [tasks."dependencies:check-order"]
-description = "Check dependency ordering in all pubspec files"
-run = [
-  'FLUTTER_ROOT="$(mise where flutter)" dart run dependency_sorter --check',
-  'FLUTTER_ROOT="$(mise where flutter)" dart run dependency_sorter --check --path packages/engine',
-]
+description = "Check application dependency ordering"
+run = 'FLUTTER_ROOT="$(mise where flutter)" dart run dependency_sorter --check'
 
 
 # Formatting
@@ -50,17 +44,8 @@ run = "dart format ."
 # Static Analysis
 
 [tasks.analyze]
-description = "Analyze application and game engine"
-run = [{ task = "analyze:application" }, { task = "analyze:engine" }]
-
-[tasks."analyze:application"]
-description = "Analyze Flutter application"
+description = "Analyze the complete Flutter application"
 run = "flutter analyze --fatal-infos"
-
-[tasks."analyze:engine"]
-description = "Analyze game engine"
-dir = "packages/engine"
-run = "dart analyze --fatal-infos"
 
 
 # Spelling
@@ -74,12 +59,7 @@ run = "typos ."
 
 [tasks.test]
 description = "Run all project tests"
-run = [{ task = "test:engine" }]
-
-[tasks."test:engine"]
-description = "Run game engine tests"
-dir = "packages/engine"
-run = "dart test"
+run = "flutter test"
 
 
 # Automatic Fixes
@@ -87,20 +67,10 @@ run = "dart test"
 [tasks.fix]
 description = "Apply automatic fixes to the entire project"
 run = [
-  { task = "fix:application" },
-  { task = "fix:engine" },
+  "dart fix --apply",
   { task = "dependencies:sort" },
   { task = "format:apply" },
 ]
-
-[tasks."fix:application"]
-description = "Apply automatic fixes to Flutter application"
-run = "dart fix --apply"
-
-[tasks."fix:engine"]
-description = "Apply automatic fixes to game engine"
-dir = "packages/engine"
-run = "dart fix --apply"
 
 
 # Quality Verification

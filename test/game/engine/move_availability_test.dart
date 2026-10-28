@@ -1,6 +1,6 @@
 import 'dart:math';
 
-import 'package:engine/engine.dart';
+import 'package:realms/game/engine.dart';
 import 'package:test/test.dart';
 
 void main() {
@@ -9,37 +9,47 @@ void main() {
       test(
         'agrees with moves for every small ${rowCount}x$columnCount board',
         () {
-          const levels = <int?>[null, 1, 2];
+          const cellValues = <int?>[null, 1, 2];
           final configuration = GameConfiguration(
             rowCount: rowCount,
             columnCount: columnCount,
             initialTileCount: 1,
             maxTileLevel: 2,
           );
-          final boardCount = pow(levels.length, rowCount * columnCount).toInt();
+          final boardCount = pow(
+            cellValues.length,
+            rowCount * columnCount,
+          ).toInt();
 
           for (var boardIndex = 0; boardIndex < boardCount; boardIndex++) {
-            var remaining = boardIndex;
+            // Each base-N digit selects one cell value, including empty.
+            var encodedCells = boardIndex;
             final rows = List.generate(
               rowCount,
               (_) => List.generate(columnCount, (_) {
-                final level = levels[remaining % levels.length];
-                remaining ~/= levels.length;
-                return level;
+                final cellValue = cellValues[encodedCells % cellValues.length];
+                encodedCells ~/= cellValues.length;
+                return cellValue;
               }),
             );
             final state = GameState(
               board: GameBoard(rows: rows),
               configuration: configuration,
             );
-            final results = [
+            final moveResults = [
               for (final direction in MoveDirection.values)
                 state.moveWithResult(direction: direction, random: Random(42)),
             ];
-            final hasChangedMove = results.any((result) => result.changed);
+            final anyMoveChangesBoard = moveResults.any(
+              (moveResult) => moveResult.changed,
+            );
 
-            expect(state.canMove, hasChangedMove, reason: '$rows');
-            expect(state.isGameOver, !hasChangedMove, reason: '$rows');
+            expect(
+              state.hasAvailableMoves,
+              anyMoveChangesBoard,
+              reason: '$rows',
+            );
+            expect(state.isGameOver, !anyMoveChangesBoard, reason: '$rows');
           }
         },
       );
@@ -55,7 +65,7 @@ void main() {
         ),
       );
 
-      expect(state.canMove, isFalse);
+      expect(state.hasAvailableMoves, isFalse);
       expect(state.isGameOver, isTrue);
     });
 
@@ -69,7 +79,7 @@ void main() {
         ),
       );
 
-      expect(state.canMove, isTrue);
+      expect(state.hasAvailableMoves, isTrue);
       expect(state.isGameOver, isFalse);
     });
 
@@ -83,7 +93,7 @@ void main() {
         ),
       );
 
-      expect(state.canMove, isTrue);
+      expect(state.hasAvailableMoves, isTrue);
       expect(state.isGameOver, isFalse);
     });
 
@@ -92,7 +102,7 @@ void main() {
         board: GameBoard.empty(rowCount: 2, columnCount: 3),
       );
 
-      expect(state.canMove, isFalse);
+      expect(state.hasAvailableMoves, isFalse);
       expect(state.isGameOver, isTrue);
     });
 
@@ -106,7 +116,7 @@ void main() {
           ),
         );
 
-        expect(state.canMove, isFalse);
+        expect(state.hasAvailableMoves, isFalse);
         expect(state.isGameOver, isTrue);
       }
     });
@@ -128,7 +138,7 @@ void main() {
         configuration: configuration,
       );
 
-      expect(state.canMove, isFalse);
+      expect(state.hasAvailableMoves, isFalse);
       expect(state.isGameOver, isTrue);
     });
 
@@ -149,7 +159,7 @@ void main() {
         configuration: configuration,
       );
 
-      expect(state.canMove, isTrue);
+      expect(state.hasAvailableMoves, isTrue);
       expect(state.isGameOver, isFalse);
     });
 
@@ -164,7 +174,7 @@ void main() {
         ),
       );
 
-      expect(state.canMove, isTrue);
+      expect(state.hasAvailableMoves, isTrue);
       expect(state.isGameOver, isFalse);
     });
 
@@ -178,7 +188,7 @@ void main() {
 
       final state = GameState(board: board, score: 150);
 
-      expect(state.canMove, isTrue);
+      expect(state.hasAvailableMoves, isTrue);
       expect(state.isGameOver, isFalse);
       expect(state.board, same(board));
 

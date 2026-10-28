@@ -4,9 +4,6 @@
 /// The `rowIndex` increases downward; `columnIndex` increases rightward.
 typedef BoardPosition = ({int rowIndex, int columnIndex});
 
-/// Compatibility name for [BoardPosition].
-typedef TilePosition = BoardPosition;
-
 /// An immutable, non-empty rectangular grid of tile levels.
 ///
 /// A `null` cell is empty. The board preserves any supplied integer, leaving

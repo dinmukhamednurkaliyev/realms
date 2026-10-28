@@ -1,4 +1,4 @@
-import 'package:engine/engine.dart';
+import 'package:realms/game/engine.dart';
 import 'package:test/test.dart';
 
 void main() {
@@ -71,11 +71,11 @@ void main() {
     });
 
     test('protects spawn weights from external changes', () {
-      final weights = {1: 9, 2: 1};
+      final spawnWeights = {1: 9, 2: 1};
 
-      final configuration = GameConfiguration(spawnWeights: weights);
+      final configuration = GameConfiguration(spawnWeights: spawnWeights);
 
-      weights[1] = 100;
+      spawnWeights[1] = 100;
 
       expect(configuration.spawnWeights, {1: 9, 2: 1});
 

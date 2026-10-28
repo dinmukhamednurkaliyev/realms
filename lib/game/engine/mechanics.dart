@@ -1,7 +1,7 @@
 import 'dart:math';
 
-import 'package:engine/src/game/board.dart';
-import 'package:engine/src/game/events.dart';
+import 'package:realms/game/engine/board.dart';
+import 'package:realms/game/engine/events.dart';
 
 /// A direction in which the player slides all tiles on the board.
 enum MoveDirection {
@@ -18,7 +18,7 @@ enum MoveDirection {
   right,
 }
 
-typedef _LineMoveResult = ({
+typedef _LineMovementResult = ({
   List<int?> cells,
   List<TileMovement> movements,
   List<TileMerge> merges,
@@ -30,14 +30,17 @@ typedef _LineMoveResult = ({
 /// requires adjacent tiles that can merge. Checking right and down covers
 /// every neighboring pair once, including single rows and columns.
 /// No boards or events are constructed, and no randomness is consumed.
-bool canMoveBoard({required GameBoard board, required int maxTileLevel}) {
+bool hasAvailableMoves({required GameBoard board, required int maxTileLevel}) {
   for (var rowIndex = 0; rowIndex < board.rowCount; rowIndex++) {
     for (var columnIndex = 0; columnIndex < board.columnCount; columnIndex++) {
-      final level = board.tileAt(rowIndex: rowIndex, columnIndex: columnIndex);
+      final tileLevel = board.tileAt(
+        rowIndex: rowIndex,
+        columnIndex: columnIndex,
+      );
 
       if (columnIndex + 1 < board.columnCount &&
           _canSlideOrMerge(
-            level,
+            tileLevel,
             board.tileAt(rowIndex: rowIndex, columnIndex: columnIndex + 1),
             maxTileLevel,
           )) {
@@ -46,7 +49,7 @@ bool canMoveBoard({required GameBoard board, required int maxTileLevel}) {
 
       if (rowIndex + 1 < board.rowCount &&
           _canSlideOrMerge(
-            level,
+            tileLevel,
             board.tileAt(rowIndex: rowIndex + 1, columnIndex: columnIndex),
             maxTileLevel,
           )) {
@@ -59,8 +62,12 @@ bool canMoveBoard({required GameBoard board, required int maxTileLevel}) {
 }
 
 bool _canSlideOrMerge(int? firstLevel, int? secondLevel, int maxTileLevel) {
-  if (firstLevel == null || secondLevel == null) {
-    return firstLevel != secondLevel;
+  if (firstLevel == null) {
+    return secondLevel != null;
+  }
+
+  if (secondLevel == null) {
+    return true;
   }
 
   return _canMergeTiles(firstLevel, secondLevel, maxTileLevel);
@@ -69,7 +76,7 @@ bool _canSlideOrMerge(int? firstLevel, int? secondLevel, int maxTileLevel) {
 bool _canMergeTiles(int firstLevel, int secondLevel, int maxTileLevel) =>
     firstLevel == secondLevel && firstLevel < maxTileLevel;
 
-/// Slides a board in [direction] and describes any resulting merges.
+/// Slides and merges tiles in [direction], returning the board and events.
 ///
 /// Tiles with the same level merge once per move, unless they have already
 /// reached the maximum configured level. Movement events omit stationary
@@ -84,9 +91,7 @@ moveBoard({
   required MoveDirection direction,
   required int maxTileLevel,
 }) {
-  // Changes are assembled in mutable copies. The original board remains
-  // untouched even when individual source tiles do not move.
-  final nextRows = [
+  final movedRows = [
     for (final row in board.rows) [...row],
   ];
 
@@ -98,36 +103,36 @@ moveBoard({
   final lineCount = isHorizontal ? board.rowCount : board.columnCount;
 
   for (var lineIndex = 0; lineIndex < lineCount; lineIndex++) {
-    final positions = _positionsForLine(
+    final linePositions = _positionsForLine(
       board: board,
       direction: direction,
       lineIndex: lineIndex,
     );
 
-    final lineMove = _slideAndMergeLine(
+    final lineMovement = _slideAndMergeLine(
       board: board,
-      positions: positions,
+      linePositions: linePositions,
       maxTileLevel: maxTileLevel,
     );
 
-    // The ordered positions map the normalized line back onto real cells.
+    // Map the destination-first line back onto board coordinates.
     for (
       var positionIndex = 0;
-      positionIndex < positions.length;
+      positionIndex < linePositions.length;
       positionIndex++
     ) {
-      final destinationPosition = positions[positionIndex];
+      final destinationPosition = linePositions[positionIndex];
 
-      nextRows[destinationPosition.rowIndex][destinationPosition.columnIndex] =
-          lineMove.cells[positionIndex];
+      movedRows[destinationPosition.rowIndex][destinationPosition.columnIndex] =
+          lineMovement.cells[positionIndex];
     }
 
-    movements.addAll(lineMove.movements);
-    merges.addAll(lineMove.merges);
+    movements.addAll(lineMovement.movements);
+    merges.addAll(lineMovement.merges);
   }
 
   return (
-    board: GameBoard(rows: nextRows),
+    board: GameBoard(rows: movedRows),
     movements: List<TileMovement>.unmodifiable(movements),
     merges: List<TileMerge>.unmodifiable(merges),
   );
@@ -163,84 +168,79 @@ List<BoardPosition> _positionsForLine({
 
 /// Slides and merges a row or column, preserving original tile positions.
 ///
-/// [positions] always points from the destination edge toward the far edge.
-_LineMoveResult _slideAndMergeLine({
+/// [linePositions] runs from the destination edge toward the far edge.
+_LineMovementResult _slideAndMergeLine({
   required GameBoard board,
-  required List<BoardPosition> positions,
+  required List<BoardPosition> linePositions,
   required int maxTileLevel,
 }) {
   final sourceTiles = <({int level, BoardPosition position})>[];
 
-  for (final sourcePosition in positions) {
-    final level = board.tileAt(
+  for (final sourcePosition in linePositions) {
+    final tileLevel = board.tileAt(
       rowIndex: sourcePosition.rowIndex,
       columnIndex: sourcePosition.columnIndex,
     );
 
-    if (level != null) {
-      sourceTiles.add((level: level, position: sourcePosition));
+    if (tileLevel != null) {
+      sourceTiles.add((level: tileLevel, position: sourcePosition));
     }
   }
 
-  final movedCells = <int?>[];
+  final destinationCells = <int?>[];
   final movements = <TileMovement>[];
   final merges = <TileMerge>[];
   var sourceIndex = 0;
 
   while (sourceIndex < sourceTiles.length) {
-    final currentTile = sourceTiles[sourceIndex];
-    final destinationPosition = positions[movedCells.length];
-    final hasNextTile = sourceIndex + 1 < sourceTiles.length;
-    final canMerge =
-        hasNextTile &&
-        _canMergeTiles(
-          currentTile.level,
-          sourceTiles[sourceIndex + 1].level,
-          maxTileLevel,
-        );
+    final sourceTile = sourceTiles[sourceIndex];
+    final followingTile = sourceIndex + 1 < sourceTiles.length
+        ? sourceTiles[sourceIndex + 1]
+        : null;
+    final destinationPosition = linePositions[destinationCells.length];
 
     _recordMovementIfChanged(
       movements: movements,
-      from: currentTile.position,
+      from: sourceTile.position,
       to: destinationPosition,
-      level: currentTile.level,
+      level: sourceTile.level,
     );
 
-    if (canMerge) {
-      final nextTile = sourceTiles[sourceIndex + 1];
-      final mergedLevel = currentTile.level + 1;
-      movedCells.add(mergedLevel);
-
-      _recordMovementIfChanged(
-        movements: movements,
-        from: nextTile.position,
-        to: destinationPosition,
-        level: nextTile.level,
-      );
-
-      merges.add(
-        TileMerge(
-          first: currentTile.position,
-          second: nextTile.position,
-          destination: destinationPosition,
-          level: mergedLevel,
-        ),
-      );
-
-      // Consuming both inputs prevents a freshly merged tile from merging
-      // a second time during the same turn.
-      sourceIndex += 2;
-    } else {
-      movedCells.add(currentTile.level);
+    if (followingTile == null ||
+        !_canMergeTiles(sourceTile.level, followingTile.level, maxTileLevel)) {
+      destinationCells.add(sourceTile.level);
       sourceIndex++;
+      continue;
     }
+
+    final mergedLevel = sourceTile.level + 1;
+    destinationCells.add(mergedLevel);
+
+    _recordMovementIfChanged(
+      movements: movements,
+      from: followingTile.position,
+      to: destinationPosition,
+      level: followingTile.level,
+    );
+
+    merges.add(
+      TileMerge(
+        firstSource: sourceTile.position,
+        secondSource: followingTile.position,
+        destination: destinationPosition,
+        level: mergedLevel,
+      ),
+    );
+
+    // Only original tiles are consumed, so a new tile cannot merge again.
+    sourceIndex += 2;
   }
 
-  while (movedCells.length < positions.length) {
-    movedCells.add(null);
+  while (destinationCells.length < linePositions.length) {
+    destinationCells.add(null);
   }
 
-  return (cells: movedCells, movements: movements, merges: merges);
+  return (cells: destinationCells, movements: movements, merges: merges);
 }
 
 void _recordMovementIfChanged({
@@ -262,7 +262,7 @@ void _recordMovementIfChanged({
 /// selects the position and one `nextDouble` selects the level, in that
 /// order. Throws [StateError] if the board contains no empty position.
 /// Internal callers supply spawn weights validated by `GameConfiguration`.
-({GameBoard board, TileSpawn event}) spawnTile({
+({GameBoard board, TileSpawn spawnedTile}) spawnTile({
   required GameBoard board,
   required Random random,
   required Map<int, int> spawnWeights,
@@ -281,23 +281,21 @@ void _recordMovementIfChanged({
     throw StateError('Cannot spawn a tile on a full board.');
   }
 
-  final selectedPosition =
-      emptyPositions[random.nextInt(emptyPositions.length)];
-  final spawnedLevel = _selectSpawnLevel(
+  final spawnPosition = emptyPositions[random.nextInt(emptyPositions.length)];
+  final spawnLevel = _selectSpawnLevel(
     random: random,
     spawnWeights: spawnWeights,
   );
 
-  final nextRows = [
+  final rowsWithSpawn = [
     for (final row in board.rows) [...row],
   ];
 
-  nextRows[selectedPosition.rowIndex][selectedPosition.columnIndex] =
-      spawnedLevel;
+  rowsWithSpawn[spawnPosition.rowIndex][spawnPosition.columnIndex] = spawnLevel;
 
   return (
-    board: GameBoard(rows: nextRows),
-    event: TileSpawn(position: selectedPosition, level: spawnedLevel),
+    board: GameBoard(rows: rowsWithSpawn),
+    spawnedTile: TileSpawn(position: spawnPosition, level: spawnLevel),
   );
 }
 
@@ -310,14 +308,14 @@ int _selectSpawnLevel({
     (total, weight) => total + weight,
   );
 
-  final roll = random.nextDouble() * totalWeight;
+  final weightedDraw = random.nextDouble() * totalWeight;
   var cumulativeWeight = 0;
 
-  for (final entry in spawnWeights.entries) {
-    cumulativeWeight += entry.value;
+  for (final MapEntry(key: tileLevel, value: weight) in spawnWeights.entries) {
+    cumulativeWeight += weight;
 
-    if (roll < cumulativeWeight) {
-      return entry.key;
+    if (weightedDraw < cumulativeWeight) {
+      return tileLevel;
     }
   }
 

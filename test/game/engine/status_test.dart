@@ -1,10 +1,10 @@
 import 'dart:math';
 
-import 'package:engine/engine.dart';
+import 'package:realms/game/engine.dart';
 import 'package:test/test.dart';
 
 void main() {
-  group('Outcomes', () {
+  group('Game status', () {
     test(
       'allows continued moves after victory without changing old snapshots',
       () {
@@ -21,17 +21,17 @@ void main() {
           ),
           configuration: configuration,
         );
-        final result = state.moveWithResult(
+        final moveResult = state.moveWithResult(
           direction: MoveDirection.left,
           random: Random(42),
         );
 
-        expect(state.outcome, GameOutcome.won);
-        expect(result.changed, isTrue);
-        expect(result.scoreGained, 90);
-        expect(result.spawnedTile, isNotNull);
-        expect(result.state.configuration, same(configuration));
-        expect(result.state.outcome, GameOutcome.won);
+        expect(state.status, GameStatus.won);
+        expect(moveResult.changed, isTrue);
+        expect(moveResult.scoreGained, 90);
+        expect(moveResult.spawnedTile, isNotNull);
+        expect(moveResult.state.configuration, same(configuration));
+        expect(moveResult.state.status, GameStatus.won);
         expect(state.board.rows, [
           [2, 2, null],
         ]);
@@ -49,9 +49,9 @@ void main() {
         ),
       );
 
-      expect(state.outcome, GameOutcome.inProgress);
+      expect(state.status, GameStatus.inProgress);
       expect(state.isGameOver, isFalse);
-      expect(state.canMove, isTrue);
+      expect(state.hasAvailableMoves, isTrue);
     });
 
     test('ends an Endless game in defeat when no moves remain', () {
@@ -64,7 +64,7 @@ void main() {
         ),
       );
 
-      expect(state.outcome, GameOutcome.lost);
+      expect(state.status, GameStatus.lost);
       expect(state.isGameOver, isTrue);
     });
 
@@ -83,8 +83,8 @@ void main() {
         configuration: configuration,
       );
 
-      expect(state.canMove, isTrue);
-      expect(state.outcome, GameOutcome.won);
+      expect(state.hasAvailableMoves, isTrue);
+      expect(state.status, GameStatus.won);
       expect(state.isGameOver, isTrue);
     });
 
@@ -105,8 +105,8 @@ void main() {
         configuration: configuration,
       );
 
-      expect(state.canMove, isFalse);
-      expect(state.outcome, GameOutcome.won);
+      expect(state.hasAvailableMoves, isFalse);
+      expect(state.status, GameStatus.won);
       expect(state.isGameOver, isTrue);
     });
 
@@ -124,7 +124,7 @@ void main() {
         ),
       );
 
-      expect(state.outcome, GameOutcome.lost);
+      expect(state.status, GameStatus.lost);
     });
 
     test('changes from in progress to victory after a merge', () {
@@ -141,14 +141,14 @@ void main() {
         ),
         configuration: configuration,
       );
-      final result = state.moveWithResult(
+      final moveResult = state.moveWithResult(
         direction: MoveDirection.left,
         random: Random(42),
       );
 
-      expect(state.outcome, GameOutcome.inProgress);
-      expect(result.state.outcome, GameOutcome.won);
-      expect(result.scoreGained, 40);
+      expect(state.status, GameStatus.inProgress);
+      expect(moveResult.state.status, GameStatus.won);
+      expect(moveResult.scoreGained, 40);
     });
 
     test('evaluates victory correctly when restoring a saved state', () {
@@ -167,7 +167,7 @@ void main() {
         configuration: configuration,
       );
 
-      expect(state.outcome, GameOutcome.won);
+      expect(state.status, GameStatus.won);
       expect(state.score, 800);
     });
 
@@ -176,7 +176,7 @@ void main() {
         board: GameBoard.empty(rowCount: 1, columnCount: 2),
       );
 
-      expect(state.outcome, GameOutcome.lost);
+      expect(state.status, GameStatus.lost);
       expect(state.isGameOver, isTrue);
     });
   });

@@ -1,6 +1,6 @@
 import 'dart:math';
 
-import 'package:engine/engine.dart';
+import 'package:realms/game/engine.dart';
 import 'package:test/test.dart';
 
 void main() {

@@ -1,4 +1,4 @@
-import 'package:engine/src/game/configuration.dart';
+import 'package:realms/game/engine/configuration.dart';
 
 /// An immutable stage definition belonging to Campaign mode.
 ///

@@ -1,6 +1,6 @@
 import 'dart:math';
 
-import 'package:engine/engine.dart';
+import 'package:realms/game/engine.dart';
 import 'package:test/test.dart';
 
 void main() {
@@ -24,7 +24,7 @@ void main() {
         ),
       );
 
-      final next = state.move(
+      final nextState = state.move(
         direction: MoveDirection.left,
         random: Random(42),
       );
@@ -32,7 +32,7 @@ void main() {
       // Level 2: 40 points
       // Level 3: 90 points
       // Level 4: 160 points
-      expect(next.score, 290);
+      expect(nextState.score, 290);
       expect(state.score, 0);
     });
 
@@ -51,12 +51,12 @@ void main() {
         configuration: configuration,
       );
 
-      final next = state.move(
+      final nextState = state.move(
         direction: MoveDirection.left,
         random: Random(42),
       );
 
-      expect(next.score, 100);
+      expect(nextState.score, 100);
     });
 
     test('preserves score when moving without merging', () {
@@ -69,12 +69,12 @@ void main() {
         score: 500,
       );
 
-      final next = state.move(
+      final nextState = state.move(
         direction: MoveDirection.left,
         random: Random(42),
       );
 
-      expect(next.score, 500);
+      expect(nextState.score, 500);
       expect(state.score, 500);
     });
 
@@ -88,13 +88,13 @@ void main() {
         score: 250,
       );
 
-      final next = state.move(
+      final nextState = state.move(
         direction: MoveDirection.left,
         random: Random(42),
       );
 
-      expect(next, same(state));
-      expect(next.score, 250);
+      expect(nextState, same(state));
+      expect(nextState.score, 250);
     });
 
     test('rejects negative scores', () {

@@ -1,4 +1,4 @@
-import 'package:engine/src/game/board.dart';
+import 'package:realms/game/engine/board.dart';
 
 /// A victory condition evaluated against an immutable game snapshot.
 ///
@@ -36,8 +36,8 @@ final class ReachTileLevelObjective implements GameObjective {
   @override
   bool isCompleted({required GameBoard board, required int score}) {
     for (final row in board.rows) {
-      for (final level in row) {
-        if (level != null && level >= targetLevel) {
+      for (final tileLevel in row) {
+        if (tileLevel != null && tileLevel >= targetLevel) {
           return true;
         }
       }

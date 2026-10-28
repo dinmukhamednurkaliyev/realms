@@ -1,6 +1,6 @@
 import 'dart:math';
 
-import 'package:engine/engine.dart';
+import 'package:realms/game/engine.dart';
 import 'package:test/test.dart';
 
 const _classicBoardSize = 4;
@@ -63,7 +63,7 @@ void main() {
     test('starts with the configured number of tiles', () {
       final configuration = GameConfiguration(rowCount: 2, columnCount: 2);
 
-      final random = _ControlledRandom();
+      final random = _FixedSpawnRandom();
 
       final state = GameState.start(
         configuration: configuration,
@@ -95,7 +95,7 @@ void main() {
           maxTileLevel: 3,
           spawnWeights: {3: 1},
         );
-        final random = _ControlledRandom(levelRoll: 0.999999999);
+        final random = _FixedSpawnRandom(levelDraw: 0.999999999);
 
         final state = GameState.start(
           configuration: configuration,
@@ -108,101 +108,106 @@ void main() {
         );
         expect(state.configuration, same(configuration));
         expect(random.calls, [
-          for (var remaining = cellCount; remaining > 0; remaining--) ...[
-            'nextInt($remaining)',
-            'nextDouble',
-          ],
+          for (
+            var emptyCellCount = cellCount;
+            emptyCellCount > 0;
+            emptyCellCount--
+          ) ...['nextInt($emptyCellCount)', 'nextDouble'],
         ]);
       });
     }
   });
 
   group('State transitions', () {
-    const lineCases = <({String name, List<int?> input, List<int?> output})>[
-      (
-        name: 'slides across empty cells',
-        input: [null, 1, null, 2],
-        output: [1, 2, null, null],
-      ),
-      (
-        name: 'merges across empty cells',
-        input: [1, null, 1, 2],
-        output: [2, 2, null, null],
-      ),
-      (
-        name: 'merges the pair nearest the destination first',
-        input: [1, 1, 1, null],
-        output: [2, 1, null, null],
-      ),
-      (
-        name: 'merges two independent equal pairs',
-        input: [1, 1, 1, 1],
-        output: [2, 2, null, null],
-      ),
-      (
-        name: 'does not merge a newly formed tile again',
-        input: [1, 1, 2, null],
-        output: [2, 2, null, null],
-      ),
-      (
-        name: 'merges two independent different pairs',
-        input: [2, 2, 3, 3],
-        output: [3, 4, null, null],
-      ),
-      (
-        name: 'does not merge tiles separated by another value',
-        input: [1, 2, 2, 1],
-        output: [1, 3, 1, null],
-      ),
-      (
-        name: 'does not merge a new tile with either neighbor',
-        input: [2, 1, 1, 2],
-        output: [2, 2, 2, null],
-      ),
-      (
-        name: 'supports higher evolution levels',
-        input: [5, 5, 7, 7],
-        output: [6, 8, null, null],
-      ),
-    ];
+    const lineCases =
+        <({String name, List<int?> sourceLine, List<int?> expectedLine})>[
+          (
+            name: 'slides across empty cells',
+            sourceLine: [null, 1, null, 2],
+            expectedLine: [1, 2, null, null],
+          ),
+          (
+            name: 'merges across empty cells',
+            sourceLine: [1, null, 1, 2],
+            expectedLine: [2, 2, null, null],
+          ),
+          (
+            name: 'merges the pair nearest the destination first',
+            sourceLine: [1, 1, 1, null],
+            expectedLine: [2, 1, null, null],
+          ),
+          (
+            name: 'merges two independent equal pairs',
+            sourceLine: [1, 1, 1, 1],
+            expectedLine: [2, 2, null, null],
+          ),
+          (
+            name: 'does not merge a newly formed tile again',
+            sourceLine: [1, 1, 2, null],
+            expectedLine: [2, 2, null, null],
+          ),
+          (
+            name: 'merges two independent different pairs',
+            sourceLine: [2, 2, 3, 3],
+            expectedLine: [3, 4, null, null],
+          ),
+          (
+            name: 'does not merge tiles separated by a different tile level',
+            sourceLine: [1, 2, 2, 1],
+            expectedLine: [1, 3, 1, null],
+          ),
+          (
+            name: 'does not merge a new tile with either neighbor',
+            sourceLine: [2, 1, 1, 2],
+            expectedLine: [2, 2, 2, null],
+          ),
+          (
+            name: 'supports higher evolution levels',
+            sourceLine: [5, 5, 7, 7],
+            expectedLine: [6, 8, null, null],
+          ),
+        ];
 
     for (final direction in MoveDirection.values) {
       group(direction.name, () {
         for (final testCase in lineCases) {
           test(testCase.name, () {
-            final originalRows = _rowsWithLine(
-              tiles: testCase.input,
+            final originalRows = _rowsWithLineFromDestination(
+              line: testCase.sourceLine,
               direction: direction,
             );
 
             final state = GameState(board: GameBoard(rows: originalRows));
 
-            final expectedRows = _rowsWithLine(
-              tiles: testCase.output,
+            final expectedRows = _rowsWithLineFromDestination(
+              line: testCase.expectedLine,
               direction: direction,
             );
 
             expectedRows[3][3] = 1;
 
-            final next = state.move(
+            final nextState = state.move(
               direction: direction,
-              random: _ControlledRandom(),
+              random: _FixedSpawnRandom(),
             );
 
-            expect(next.board.rows, expectedRows);
+            expect(nextState.board.rows, expectedRows);
             expect(state.board.rows, originalRows);
-            expect(next, isNot(same(state)));
+            expect(nextState, isNot(same(state)));
           });
         }
 
         test('does not spawn when the board does not change', () {
           final state = GameState(
             board: GameBoard(
-              rows: _rowsWithLine(tiles: [1, 2, 3, 4], direction: direction),
+              rows: _rowsWithLineFromDestination(
+                line: [1, 2, 3, 4],
+                direction: direction,
+              ),
             ),
           );
 
-          final random = _ControlledRandom();
+          final random = _FixedSpawnRandom();
 
           expect(state.move(direction: direction, random: random), same(state));
 
@@ -211,7 +216,7 @@ void main() {
 
         test('does not spawn on an empty board', () {
           final state = GameState(board: GameBoard(rows: _emptyRows()));
-          final random = _ControlledRandom();
+          final random = _FixedSpawnRandom();
 
           expect(state.move(direction: direction, random: random), same(state));
 
@@ -230,7 +235,7 @@ void main() {
             ),
           );
 
-          final random = _ControlledRandom();
+          final random = _FixedSpawnRandom();
 
           expect(state.move(direction: direction, random: random), same(state));
 
@@ -256,7 +261,7 @@ void main() {
           configuration: configuration,
         );
 
-        final random = _ControlledRandom();
+        final random = _FixedSpawnRandom();
 
         expect(
           state.move(direction: MoveDirection.left, random: random),
@@ -276,19 +281,19 @@ void main() {
           configuration: configuration,
         );
 
-        final next = state.move(
+        final nextState = state.move(
           direction: MoveDirection.left,
-          random: _ControlledRandom(),
+          random: _FixedSpawnRandom(),
         );
 
-        expect(next.board.rows, [
+        expect(nextState.board.rows, [
           [3, null, null, 1],
         ]);
       });
     });
 
     group('variable board dimensions', () {
-      const rectangularResults = <MoveDirection, List<List<int?>>>{
+      const expectedRowsByDirection = <MoveDirection, List<List<int?>>>{
         MoveDirection.left: [
           [2, null, null],
           [1, 2, 1],
@@ -307,8 +312,9 @@ void main() {
         ],
       };
 
-      for (final entry in rectangularResults.entries) {
-        test('moves ${entry.key.name} on an asymmetric rectangle', () {
+      for (final MapEntry(key: direction, value: expectedRows)
+          in expectedRowsByDirection.entries) {
+        test('moves ${direction.name} on an asymmetric rectangle', () {
           final state = GameState(
             board: GameBoard(
               rows: [
@@ -317,12 +323,12 @@ void main() {
               ],
             ),
           );
-          final random = _ControlledRandom();
+          final random = _FixedSpawnRandom();
 
-          final next = state.move(direction: entry.key, random: random);
+          final nextState = state.move(direction: direction, random: random);
 
-          expect(next.board.rows, entry.value);
-          expect(next.configuration, same(state.configuration));
+          expect(nextState.board.rows, expectedRows);
+          expect(nextState.configuration, same(state.configuration));
           expect(random.calls, ['nextInt(3)', 'nextDouble']);
         });
       }
@@ -333,7 +339,7 @@ void main() {
           rows: [
             [1, null, 1],
           ],
-          results: {
+          expectedRowsByDirection: {
             MoveDirection.left: [
               [2, null, 1],
             ],
@@ -349,7 +355,7 @@ void main() {
             [null],
             [1],
           ],
-          results: {
+          expectedRowsByDirection: {
             MoveDirection.up: [
               [2],
               [null],
@@ -368,16 +374,16 @@ void main() {
         for (final direction in MoveDirection.values) {
           test('${testCase.name} handles ${direction.name}', () {
             final state = GameState(board: GameBoard(rows: testCase.rows));
-            final random = _ControlledRandom();
+            final random = _FixedSpawnRandom();
 
-            final next = state.move(direction: direction, random: random);
-            final expectedRows = testCase.results[direction];
+            final nextState = state.move(direction: direction, random: random);
+            final expectedRows = testCase.expectedRowsByDirection[direction];
 
             if (expectedRows == null) {
-              expect(next, same(state));
+              expect(nextState, same(state));
               expect(random.calls, isEmpty);
             } else {
-              expect(next.board.rows, expectedRows);
+              expect(nextState.board.rows, expectedRows);
               expect(random.calls, ['nextInt(2)', 'nextDouble']);
             }
           });
@@ -393,7 +399,7 @@ void main() {
               ],
             ),
           );
-          final random = _ControlledRandom();
+          final random = _FixedSpawnRandom();
 
           for (final direction in MoveDirection.values) {
             expect(
@@ -419,12 +425,12 @@ void main() {
           ),
         );
 
-        final next = state.move(
+        final nextState = state.move(
           direction: MoveDirection.left,
-          random: _ControlledRandom(),
+          random: _FixedSpawnRandom(),
         );
 
-        expect(next.board.rows, [
+        expect(nextState.board.rows, [
           [2, 2, null, null, null],
           [null, null, null, null, null],
           [null, null, null, null, null],
@@ -445,12 +451,12 @@ void main() {
           ),
         );
 
-        final next = state.move(
+        final nextState = state.move(
           direction: MoveDirection.down,
-          random: _ControlledRandom(),
+          random: _FixedSpawnRandom(),
         );
 
-        expect(next.board.rows, [
+        expect(nextState.board.rows, [
           [null, null, null, null, null, null],
           [null, null, null, null, null, null],
           [null, null, null, null, null, null],
@@ -492,19 +498,19 @@ void main() {
               ],
             ),
           );
-          final random = _ControlledRandom(emptyCellIndex: emptyCellIndex);
+          final random = _FixedSpawnRandom(emptyCellIndex: emptyCellIndex);
 
-          final next = state.move(
+          final nextState = state.move(
             direction: MoveDirection.left,
             random: random,
           );
 
-          expect(next.board.rows, expectedRows);
+          expect(nextState.board.rows, expectedRows);
           expect(random.calls, ['nextInt(3)', 'nextDouble']);
         });
       }
 
-      for (final (roll, level) in [
+      for (final (levelDraw, level) in [
         (0.0, 3),
         (0.249999999, 3),
         (0.25, 1),
@@ -512,7 +518,7 @@ void main() {
         (0.75, 2),
         (0.999999999, 2),
       ]) {
-        test('uses custom weight order for a roll of $roll', () {
+        test('uses custom weight order for a draw of $levelDraw', () {
           final state = GameState(
             board: GameBoard(
               rows: [
@@ -527,14 +533,14 @@ void main() {
               spawnWeights: {3: 1, 1: 2, 2: 1},
             ),
           );
-          final random = _ControlledRandom(levelRoll: roll);
+          final random = _FixedSpawnRandom(levelDraw: levelDraw);
 
-          final next = state.move(
+          final nextState = state.move(
             direction: MoveDirection.left,
             random: random,
           );
 
-          expect(next.board.rows, [
+          expect(nextState.board.rows, [
             [1, level],
           ]);
           expect(random.calls, ['nextInt(1)', 'nextDouble']);
@@ -545,17 +551,17 @@ void main() {
         test('selects empty cell $emptyCellIndex in row order', () {
           final state = GameState(
             board: GameBoard(
-              rows: _rowsWithLine(
-                tiles: [null, 1, 2, null],
+              rows: _rowsWithLineFromDestination(
+                line: [null, 1, 2, null],
                 direction: MoveDirection.left,
               ),
             ),
           );
 
-          final random = _ControlledRandom(emptyCellIndex: emptyCellIndex);
+          final random = _FixedSpawnRandom(emptyCellIndex: emptyCellIndex);
 
-          final expectedRows = _rowsWithLine(
-            tiles: [1, 2, null, null],
+          final expectedRows = _rowsWithLineFromDestination(
+            line: [1, 2, null, null],
             direction: MoveDirection.left,
           );
 
@@ -565,45 +571,45 @@ void main() {
 
           expectedRows[rowIndex][columnIndex] = 1;
 
-          final next = state.move(
+          final nextState = state.move(
             direction: MoveDirection.left,
             random: random,
           );
 
-          expect(next.board.rows, expectedRows);
+          expect(nextState.board.rows, expectedRows);
           expect(random.calls, ['nextInt(14)', 'nextDouble']);
         });
       }
 
-      for (final (roll, level) in [
+      for (final (levelDraw, level) in [
         (0.0, 1),
         (0.899999999, 1),
         (0.9, 2),
         (0.999999999, 2),
       ]) {
-        test('spawns level $level for a roll of $roll', () {
+        test('spawns level $level for a draw of $levelDraw', () {
           final state = GameState(
             board: GameBoard(
-              rows: _rowsWithLine(
-                tiles: [null, 1, 2, null],
+              rows: _rowsWithLineFromDestination(
+                line: [null, 1, 2, null],
                 direction: MoveDirection.left,
               ),
             ),
           );
 
-          final expectedRows = _rowsWithLine(
-            tiles: [1, 2, null, null],
+          final expectedRows = _rowsWithLineFromDestination(
+            line: [1, 2, null, null],
             direction: MoveDirection.left,
           );
 
           expectedRows[3][3] = level;
 
-          final next = state.move(
+          final nextState = state.move(
             direction: MoveDirection.left,
-            random: _ControlledRandom(levelRoll: roll),
+            random: _FixedSpawnRandom(levelDraw: levelDraw),
           );
 
-          expect(next.board.rows, expectedRows);
+          expect(nextState.board.rows, expectedRows);
         });
       }
 
@@ -619,11 +625,14 @@ void main() {
           ),
         );
 
-        final random = _ControlledRandom(levelRoll: 0.9);
+        final random = _FixedSpawnRandom(levelDraw: 0.9);
 
-        final next = state.move(direction: MoveDirection.left, random: random);
+        final nextState = state.move(
+          direction: MoveDirection.left,
+          random: random,
+        );
 
-        expect(next.board.rows, [
+        expect(nextState.board.rows, [
           [2, 3, 4, 2],
           [2, 3, 4, 5],
           [3, 4, 5, 6],
@@ -635,7 +644,7 @@ void main() {
     });
 
     test('preserves a known move and random draw sequence', () {
-      final initial = GameState(
+      final initialState = GameState(
         board: GameBoard(
           rows: [
             [1, 1, 2],
@@ -643,9 +652,9 @@ void main() {
           ],
         ),
       );
-      var state = initial;
-      final random = _ControlledRandom(emptyCellIndex: 0, levelRoll: 0.9);
-      const turns = [
+      var state = initialState;
+      final random = _FixedSpawnRandom(emptyCellIndex: 0, levelDraw: 0.9);
+      const expectedMoves = [
         (
           direction: MoveDirection.left,
           rows: [
@@ -688,77 +697,86 @@ void main() {
         ),
       ];
 
-      for (final turn in turns) {
+      for (final expectedMove in expectedMoves) {
         final callCount = random.calls.length;
-        final next = state.move(direction: turn.direction, random: random);
+        final nextState = state.move(
+          direction: expectedMove.direction,
+          random: random,
+        );
 
-        expect(next.board.rows, turn.rows);
-        expect(next.configuration, same(initial.configuration));
-        if (turn.emptyCellCount == null) {
-          expect(next, same(state));
+        expect(nextState.board.rows, expectedMove.rows);
+        expect(nextState.configuration, same(initialState.configuration));
+        if (expectedMove.emptyCellCount == null) {
+          expect(nextState, same(state));
           expect(random.calls.length, callCount);
         } else {
-          expect(next, isNot(same(state)));
+          expect(nextState, isNot(same(state)));
           expect(random.calls.skip(callCount), [
-            'nextInt(${turn.emptyCellCount})',
+            'nextInt(${expectedMove.emptyCellCount})',
             'nextDouble',
           ]);
         }
 
-        state = next;
+        state = nextState;
       }
 
-      expect(initial.board.rows, [
+      expect(initialState.board.rows, [
         [1, 1, 2],
         [null, null, null],
       ]);
     });
 
     test('replays moves with equivalent random sources', () {
-      final initial = GameState(
+      final initialState = GameState(
         board: GameBoard(
-          rows: _rowsWithLine(
-            tiles: [1, null, 1, 2],
+          rows: _rowsWithLineFromDestination(
+            line: [1, null, 1, 2],
             direction: MoveDirection.left,
           ),
         ),
       );
 
-      var first = initial;
-      var second = initial;
+      var firstReplayState = initialState;
+      var secondReplayState = initialState;
 
       final firstRandom = Random(42);
       final secondRandom = Random(42);
 
-      for (var turn = 0; turn < 100; turn++) {
+      for (var moveIndex = 0; moveIndex < 100; moveIndex++) {
         final direction =
-            MoveDirection.values[turn % MoveDirection.values.length];
+            MoveDirection.values[moveIndex % MoveDirection.values.length];
 
-        first = first.move(direction: direction, random: firstRandom);
-        second = second.move(direction: direction, random: secondRandom);
+        firstReplayState = firstReplayState.move(
+          direction: direction,
+          random: firstRandom,
+        );
+        secondReplayState = secondReplayState.move(
+          direction: direction,
+          random: secondRandom,
+        );
 
-        expect(first.board.rows, second.board.rows);
+        expect(firstReplayState.board.rows, secondReplayState.board.rows);
       }
 
       expect(firstRandom.nextDouble(), secondRandom.nextDouble());
-      expect(initial.board.rows.first, [1, null, 1, 2]);
+      expect(initialState.board.rows.first, [1, null, 1, 2]);
     });
 
     test('retained states stay unchanged through later moves', () {
       var state = GameState(
         board: GameBoard(
-          rows: _rowsWithLine(
-            tiles: [1, null, 1, 2],
+          rows: _rowsWithLineFromDestination(
+            line: [1, null, 1, 2],
             direction: MoveDirection.left,
           ),
         ),
       );
 
-      final history = <({GameState state, List<List<int?>> rows})>[];
+      final snapshots = <({GameState state, List<List<int?>> rows})>[];
       final random = Random(42);
 
       for (final direction in MoveDirection.values) {
-        history.add((
+        snapshots.add((
           state: state,
           rows: [
             for (final row in state.board.rows) [...row],
@@ -768,7 +786,7 @@ void main() {
         state = state.move(direction: direction, random: random);
       }
 
-      for (final snapshot in history) {
+      for (final snapshot in snapshots) {
         expect(snapshot.state.board.rows, snapshot.rows);
       }
     });
@@ -780,8 +798,8 @@ List<List<int?>> _emptyRows() => List.generate(
   (_) => List<int?>.filled(_classicBoardSize, null),
 );
 
-List<List<int?>> _rowsWithLine({
-  required List<int?> tiles,
+List<List<int?>> _rowsWithLineFromDestination({
+  required List<int?> line,
   required MoveDirection direction,
 }) {
   final rows = _emptyRows();
@@ -789,24 +807,25 @@ List<List<int?>> _rowsWithLine({
   for (var index = 0; index < _classicBoardSize; index++) {
     switch (direction) {
       case MoveDirection.left:
-        rows[0][index] = tiles[index];
+        rows[0][index] = line[index];
       case MoveDirection.right:
-        rows[0][_classicBoardSize - 1 - index] = tiles[index];
+        rows[0][_classicBoardSize - 1 - index] = line[index];
       case MoveDirection.up:
-        rows[index][0] = tiles[index];
+        rows[index][0] = line[index];
       case MoveDirection.down:
-        rows[_classicBoardSize - 1 - index][0] = tiles[index];
+        rows[_classicBoardSize - 1 - index][0] = line[index];
     }
   }
 
   return rows;
 }
 
-final class _ControlledRandom implements Random {
-  new({this.emptyCellIndex, this.levelRoll = 0});
+// Fixes the spawn draw and empty-cell index (the last empty cell by default).
+final class _FixedSpawnRandom implements Random {
+  new({this.emptyCellIndex, this.levelDraw = 0});
 
   final int? emptyCellIndex;
-  final double levelRoll;
+  final double levelDraw;
   final calls = <String>[];
 
   @override
@@ -818,7 +837,7 @@ final class _ControlledRandom implements Random {
   @override
   double nextDouble() {
     calls.add('nextDouble');
-    return levelRoll;
+    return levelDraw;
   }
 
   @override

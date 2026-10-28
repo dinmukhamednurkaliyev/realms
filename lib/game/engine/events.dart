@@ -1,4 +1,4 @@
-import 'package:engine/src/game/board.dart';
+import 'package:realms/game/engine/board.dart';
 
 /// Describes an original tile sliding to a different board position.
 ///
@@ -20,22 +20,22 @@ final class TileMovement {
 
 /// Describes two original tiles combining at a destination position.
 ///
-/// [first] and [second] refer to positions before the move. The destination
-/// is where the new tile appears, and [level] is its resulting level.
+/// Both sources refer to positions before the move. The destination is where
+/// the new tile appears, and [level] is its resulting level.
 final class TileMerge {
   /// Records the two original tiles and the resulting tile.
   const new({
-    required this.first,
-    required this.second,
+    required this.firstSource,
+    required this.secondSource,
     required this.destination,
     required this.level,
   });
 
   /// The original position of the source nearest the destination edge.
-  final BoardPosition first;
+  final BoardPosition firstSource;
 
   /// The original position of the other source participating in the merge.
-  final BoardPosition second;
+  final BoardPosition secondSource;
 
   /// The location of the merged tile.
   final BoardPosition destination;
@@ -44,7 +44,7 @@ final class TileMerge {
   final int level;
 }
 
-/// Describes a randomly spawned tile after a successful move.
+/// Describes a tile spawned into an empty cell at startup or after a move.
 final class TileSpawn {
   /// Records the spawn position and level.
   const new({required this.position, required this.level});
