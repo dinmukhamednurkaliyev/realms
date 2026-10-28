@@ -6,6 +6,7 @@ import 'package:realms/game/engine/objectives.dart';
 /// the lifetime of a game state. A configuration can be shared across states.
 /// An optional [objective] defines success without changing movement rules.
 /// These rules are shared across game modes, including Campaign and Endless.
+/// An optional [moveLimit] limits how many successful moves a game can make.
 final class GameConfiguration {
   /// Creates validated game rules, with 4x4 classic-style defaults.
   ///
@@ -13,6 +14,7 @@ final class GameConfiguration {
   /// relative weight. Every spawn level must not exceed [maxTileLevel].
   /// The map is copied to prevent changes after construction.
   /// [objective] is optional, allowing Endless games without a victory target.
+  /// [moveLimit] is optional; when supplied, it must be positive.
   ///
   /// To set [maxTileLevel] to 1, also supply a compatible weight map,
   /// such as `{1: 1}`, instead of relying on the default `{1: 9, 2: 1}`.
@@ -22,6 +24,7 @@ final class GameConfiguration {
     this.initialTileCount = 2,
     this.maxTileLevel = 50,
     this.mergeScoreMultiplier = 10,
+    this.moveLimit,
     this.objective,
     Map<int, int> spawnWeights = const {1: 9, 2: 1},
   }) : spawnWeights = Map<int, int>.unmodifiable(spawnWeights) {
@@ -65,6 +68,14 @@ final class GameConfiguration {
       );
     }
 
+    if (moveLimit != null && moveLimit! <= 0) {
+      throw ArgumentError.value(
+        moveLimit,
+        'moveLimit',
+        'Must be greater than zero when provided.',
+      );
+    }
+
     final configuredObjective = objective;
 
     if (configuredObjective is ReachTileLevelObjective &&
@@ -104,6 +115,12 @@ final class GameConfiguration {
   ///
   /// Merging into level `n` awards `mergeScoreMultiplier * n * n` points.
   final int mergeScoreMultiplier;
+
+  /// Maximum number of successful moves allowed in a game.
+  ///
+  /// A `null` value means moves are not limited. A move that leaves the board
+  /// unchanged does not count toward this limit.
+  final int? moveLimit;
 
   /// Optional victory condition; `null` means there is no objective.
   ///
