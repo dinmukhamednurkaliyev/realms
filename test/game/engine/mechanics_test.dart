@@ -1,7 +1,7 @@
 import 'dart:math';
 
-import 'package:realms/game/engine.dart';
 import 'package:realms/game/engine/mechanics.dart' as mechanics;
+import 'package:realms/game/game.dart' as game;
 import 'package:test/test.dart';
 
 void main() {
@@ -28,7 +28,7 @@ void main() {
           for (var boardIndex = 0; boardIndex < boardCount; boardIndex++) {
             // Each base-N digit selects one cell value, including empty.
             var encodedCells = boardIndex;
-            final board = GameBoard(
+            final board = game.Board(
               rows: List.generate(
                 rowCount,
                 (_) => List.generate(columnCount, (_) {
@@ -41,7 +41,7 @@ void main() {
             );
             var anyMoveChangesBoard = false;
 
-            for (final direction in MoveDirection.values) {
+            for (final direction in game.MoveDirection.values) {
               final movementResult = mechanics.moveBoard(
                 board: board,
                 direction: direction,
@@ -64,7 +64,7 @@ void main() {
     }
 
     test('returns an immutable movement result before spawning', () {
-      final board = GameBoard(
+      final board = game.Board(
         rows: [
           [1, null, 1, 2],
         ],
@@ -72,7 +72,7 @@ void main() {
 
       final movementResult = mechanics.moveBoard(
         board: board,
-        direction: MoveDirection.left,
+        direction: game.MoveDirection.left,
         maxTileLevel: 3,
       );
 
@@ -89,7 +89,7 @@ void main() {
     });
 
     test('rejects spawning on a full board before consuming randomness', () {
-      final board = GameBoard(
+      final board = game.Board(
         rows: [
           [1, 2],
         ],

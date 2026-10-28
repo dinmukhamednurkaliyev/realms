@@ -1,18 +1,18 @@
-import 'package:realms/game/engine/configuration.dart';
+import '../engine/configuration.dart' as engine;
 
 /// An immutable stage definition belonging to Campaign mode.
 ///
 /// A campaign level identifies a stage and composes its gameplay rules.
 /// The actual tiles remain represented by integer evolution levels in
-/// `GameBoard`; the campaign [number] is a different concept.
+/// `Board`; the campaign [number] is a different concept.
 ///
-/// Campaign definitions contain data only. A `GameState` starts a stage using
+/// Campaign definitions contain data only. A `State` starts a stage using
 /// its [configuration], and the application manages level selection.
 final class CampaignLevel {
   /// Defines a campaign level with a positive [number] and a victory goal.
   ///
-  /// A campaign level must supply [GameConfiguration.objective]. Endless
-  /// games should use a [GameConfiguration] directly, without this wrapper.
+  /// A campaign level must supply [engine.Configuration.objective]. Endless
+  /// games should use a [engine.Configuration] directly, without this wrapper.
   new({required this.number, required this.configuration}) {
     if (number <= 0) {
       throw ArgumentError.value(number, 'number', 'Must be greater than zero.');
@@ -31,5 +31,5 @@ final class CampaignLevel {
   final int number;
 
   /// The immutable rules and victory objective used by this campaign level.
-  final GameConfiguration configuration;
+  final engine.Configuration configuration;
 }

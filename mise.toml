@@ -41,6 +41,20 @@ description = "Format all Dart source files"
 run = "dart format ."
 
 
+# Localization
+
+[tasks."localization:generate"]
+description = "Generate application strings from locale resources"
+run = "flutter gen-l10n"
+
+
+# Architecture
+
+[tasks."architecture:check"]
+description = "Check feature imports, public facades, and dependency direction"
+run = "dart run tool/check_architecture.dart"
+
+
 # Static Analysis
 
 [tasks.analyze]
@@ -78,8 +92,10 @@ run = [
 [tasks.verify]
 description = "Run all project quality checks"
 run = [
+  { task = "localization:generate" },
   { task = "format:check" },
   { task = "dependencies:check-order" },
+  { task = "architecture:check" },
   { task = "analyze" },
   { task = "spelling:check" },
   { task = "test" },

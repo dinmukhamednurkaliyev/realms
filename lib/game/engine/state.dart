@@ -1,14 +1,14 @@
 import 'dart:math';
 
-import 'package:realms/game/engine/board.dart';
-import 'package:realms/game/engine/configuration.dart';
-import 'package:realms/game/engine/events.dart';
-import 'package:realms/game/engine/mechanics.dart' as mechanics;
+import 'board.dart';
+import 'configuration.dart';
+import 'events.dart';
+import 'mechanics.dart' as mechanics;
 
 /// The current evaluation of victory and move availability.
 ///
 /// Completing an objective takes priority over defeat.
-enum GameStatus {
+enum Status {
   /// No objective has been completed and another move is permitted.
   inProgress,
 
@@ -24,7 +24,7 @@ enum GameStatus {
 /// Every successful move produces a new snapshot. The board, rules,
 /// accumulated score, and completed-move count in previous snapshots
 /// remain unchanged.
-final class GameState {
+final class State {
   /// Creates a snapshot from an existing board, optionally restoring a score.
   ///
   /// This does not spawn tiles. When [configuration] is omitted, default
@@ -37,10 +37,10 @@ final class GameState {
     required this.board,
     this.score = 0,
     this.movesMade = 0,
-    GameConfiguration? configuration,
+    Configuration? configuration,
   }) : configuration =
            configuration ??
-           GameConfiguration(
+           Configuration(
              rowCount: board.rowCount,
              columnCount: board.columnCount,
              initialTileCount: min(2, board.rowCount * board.columnCount),
@@ -85,10 +85,10 @@ final class GameState {
   /// The caller owns [random] and should keep using the same random source
   /// for subsequent moves to preserve a reproducible sequence of draws.
   factory start({
-    required GameConfiguration configuration,
+    required Configuration configuration,
     required Random random,
   }) {
-    var initialBoard = GameBoard.empty(
+    var initialBoard = Board.empty(
       rowCount: configuration.rowCount,
       columnCount: configuration.columnCount,
     );
@@ -106,14 +106,14 @@ final class GameState {
       initialBoard = spawnResult.board;
     }
 
-    return GameState(board: initialBoard, configuration: configuration);
+    return State(board: initialBoard, configuration: configuration);
   }
 
   /// The current immutable board.
-  final GameBoard board;
+  final Board board;
 
   /// The validated rules preserved across every move.
-  final GameConfiguration configuration;
+  final Configuration configuration;
 
   /// Total points accumulated since the game began.
   final int score;
@@ -160,16 +160,16 @@ final class GameState {
   /// available moves or exhausting the move limit. A game without an
   /// objective can never be won.
   /// This getter is pure and does not consume randomness.
-  GameStatus get status {
+  Status get status {
     if (hasCompletedObjective) {
-      return GameStatus.won;
+      return Status.won;
     }
 
     if (!hasAvailableMoves) {
-      return GameStatus.lost;
+      return Status.lost;
     }
 
-    return GameStatus.inProgress;
+    return Status.inProgress;
   }
 
   /// Whether the game has ended in either victory or defeat.
@@ -177,12 +177,12 @@ final class GameState {
   /// A victory can occur while moves remain available. The movement methods
   /// allow continued play after victory while moves remain permitted, but
   /// do not allow exceeding a configured move limit.
-  bool get isGameOver => status != GameStatus.inProgress;
+  bool get isGameOver => status != Status.inProgress;
 
   /// Performs a move and returns its next state without event details.
   ///
   /// Has the same gameplay rules and random draws as [moveWithResult].
-  GameState move({
+  State move({
     required mechanics.MoveDirection direction,
     required Random random,
   }) {
@@ -194,7 +194,7 @@ final class GameState {
   /// Steps: check the move limit, slide and merge tiles, return immediately
   /// for an unchanged board, spawn one tile, award points, and construct the
   /// next immutable state. Exhausted moves do not consume randomness.
-  GameMoveResult moveWithResult({
+  MoveResult moveWithResult({
     required mechanics.MoveDirection direction,
     required Random random,
   }) {
@@ -225,14 +225,14 @@ final class GameState {
           configuration.mergeScoreMultiplier * merge.level * merge.level;
     }
 
-    final nextState = GameState(
+    final nextState = State(
       board: spawnResult.board,
       configuration: configuration,
       score: score + scoreGained,
       movesMade: movesMade + 1,
     );
 
-    return GameMoveResult._(
+    return MoveResult._(
       state: nextState,
       scoreGained: scoreGained,
       movements: movementResult.movements,
@@ -241,7 +241,7 @@ final class GameState {
     );
   }
 
-  GameMoveResult _unchangedMoveResult() => GameMoveResult._(
+  MoveResult _unchangedMoveResult() => MoveResult._(
     state: this,
     scoreGained: 0,
     movements: const [],
@@ -254,7 +254,7 @@ final class GameState {
 /// [state] is the resulting snapshot. An unchanged move retains the original
 /// state, earns no points, emits no events, and consumes no random values.
 /// A successful move currently spawns exactly one new tile.
-final class GameMoveResult {
+final class MoveResult {
   new _({
     required this.state,
     required this.scoreGained,
@@ -268,7 +268,7 @@ final class GameMoveResult {
        );
 
   /// The next immutable state, or the original state for an unchanged move.
-  final GameState state;
+  final State state;
 
   /// Whether the attempted move changed the board.
   ///

@@ -1,7 +1,7 @@
 import 'dart:math';
 
-import 'package:realms/game/engine/board.dart';
-import 'package:realms/game/engine/events.dart';
+import 'board.dart';
+import 'events.dart';
 
 /// A direction in which the player slides all tiles on the board.
 enum MoveDirection {
@@ -30,7 +30,7 @@ typedef _LineMovementResult = ({
 /// requires adjacent tiles that can merge. Checking right and down covers
 /// every neighboring pair once, including single rows and columns.
 /// No boards or events are constructed, and no randomness is consumed.
-bool hasAvailableMoves({required GameBoard board, required int maxTileLevel}) {
+bool hasAvailableMoves({required Board board, required int maxTileLevel}) {
   for (var rowIndex = 0; rowIndex < board.rowCount; rowIndex++) {
     for (var columnIndex = 0; columnIndex < board.columnCount; columnIndex++) {
       final tileLevel = board.tileAt(
@@ -84,10 +84,10 @@ bool _canMergeTiles(int firstLevel, int secondLevel, int maxTileLevel) =>
 /// The returned board and event lists are immutable.
 ///
 /// Internal callers supply tile levels and a merge limit validated by
-/// `GameState`. This operation does not spawn tiles or calculate scores.
-({GameBoard board, List<TileMovement> movements, List<TileMerge> merges})
+/// `State`. This operation does not spawn tiles or calculate scores.
+({Board board, List<TileMovement> movements, List<TileMerge> merges})
 moveBoard({
-  required GameBoard board,
+  required Board board,
   required MoveDirection direction,
   required int maxTileLevel,
 }) {
@@ -132,7 +132,7 @@ moveBoard({
   }
 
   return (
-    board: GameBoard(rows: movedRows),
+    board: Board(rows: movedRows),
     movements: List<TileMovement>.unmodifiable(movements),
     merges: List<TileMerge>.unmodifiable(merges),
   );
@@ -140,7 +140,7 @@ moveBoard({
 
 /// Orders a physical row or column from the destination edge inward.
 List<BoardPosition> _positionsForLine({
-  required GameBoard board,
+  required Board board,
   required MoveDirection direction,
   required int lineIndex,
 }) {
@@ -170,7 +170,7 @@ List<BoardPosition> _positionsForLine({
 ///
 /// [linePositions] runs from the destination edge toward the far edge.
 _LineMovementResult _slideAndMergeLine({
-  required GameBoard board,
+  required Board board,
   required List<BoardPosition> linePositions,
   required int maxTileLevel,
 }) {
@@ -261,9 +261,9 @@ void _recordMovementIfChanged({
 /// Empty cells are enumerated in row-major order. Exactly one `nextInt`
 /// selects the position and one `nextDouble` selects the level, in that
 /// order. Throws [StateError] if the board contains no empty position.
-/// Internal callers supply spawn weights validated by `GameConfiguration`.
-({GameBoard board, TileSpawn spawnedTile}) spawnTile({
-  required GameBoard board,
+/// Internal callers supply spawn weights validated by `Configuration`.
+({Board board, TileSpawn spawnedTile}) spawnTile({
+  required Board board,
   required Random random,
   required Map<int, int> spawnWeights,
 }) {
@@ -294,7 +294,7 @@ void _recordMovementIfChanged({
   rowsWithSpawn[spawnPosition.rowIndex][spawnPosition.columnIndex] = spawnLevel;
 
   return (
-    board: GameBoard(rows: rowsWithSpawn),
+    board: Board(rows: rowsWithSpawn),
     spawnedTile: TileSpawn(position: spawnPosition, level: spawnLevel),
   );
 }

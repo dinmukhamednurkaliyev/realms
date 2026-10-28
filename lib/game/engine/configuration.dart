@@ -1,4 +1,4 @@
-import 'package:realms/game/engine/objectives.dart';
+import 'objectives.dart';
 
 /// Immutable rules used when starting, restoring, or progressing a game.
 ///
@@ -7,7 +7,7 @@ import 'package:realms/game/engine/objectives.dart';
 /// An optional [objective] defines success without changing movement rules.
 /// These rules are shared across game modes, including Campaign and Endless.
 /// An optional [moveLimit] limits how many successful moves a game can make.
-final class GameConfiguration {
+final class Configuration {
   /// Creates validated game rules, with 4x4 classic-style defaults.
   ///
   /// [spawnWeights] maps each spawnable tile level to a positive
@@ -125,7 +125,7 @@ final class GameConfiguration {
   /// Optional victory condition; `null` means there is no objective.
   ///
   /// This is independent of whether the board has any available moves.
-  final GameObjective? objective;
+  final Objective? objective;
 
   /// Immutable relative spawn weights, keyed by tile level.
   ///

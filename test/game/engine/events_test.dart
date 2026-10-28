@@ -1,13 +1,13 @@
 import 'dart:math';
 
-import 'package:realms/game/engine.dart';
+import 'package:realms/game/game.dart' as game;
 import 'package:test/test.dart';
 
 void main() {
   group('Events', () {
     test('reports a changed move when tiles slide without merging', () {
-      final state = GameState(
-        board: GameBoard(
+      final state = game.State(
+        board: game.Board(
           rows: [
             [null, 1, 2],
           ],
@@ -15,7 +15,7 @@ void main() {
         score: 100,
       );
       final moveResult = state.moveWithResult(
-        direction: MoveDirection.left,
+        direction: game.MoveDirection.left,
         random: Random(42),
       );
 
@@ -30,7 +30,7 @@ void main() {
 
     const rectangularMoveCases = [
       (
-        direction: MoveDirection.left,
+        direction: game.MoveDirection.left,
         movements: [
           (
             from: (rowIndex: 0, columnIndex: 2),
@@ -42,7 +42,7 @@ void main() {
         secondSource: (rowIndex: 0, columnIndex: 2),
       ),
       (
-        direction: MoveDirection.right,
+        direction: game.MoveDirection.right,
         movements: [
           (
             from: (rowIndex: 0, columnIndex: 0),
@@ -64,7 +64,7 @@ void main() {
         secondSource: (rowIndex: 0, columnIndex: 0),
       ),
       (
-        direction: MoveDirection.up,
+        direction: game.MoveDirection.up,
         movements: [
           (
             from: (rowIndex: 1, columnIndex: 0),
@@ -81,7 +81,7 @@ void main() {
         secondSource: (rowIndex: 1, columnIndex: 0),
       ),
       (
-        direction: MoveDirection.down,
+        direction: game.MoveDirection.down,
         movements: [
           (
             from: (rowIndex: 0, columnIndex: 0),
@@ -101,8 +101,8 @@ void main() {
 
     for (final testCase in rectangularMoveCases) {
       test('orders rectangular ${testCase.direction.name} events', () {
-        final state = GameState(
-          board: GameBoard(
+        final state = game.State(
+          board: game.Board(
             rows: [
               [1, null, 1],
               [1, 2, null],
@@ -131,8 +131,8 @@ void main() {
     }
 
     test('orders merges by line and then destination edge', () {
-      final state = GameState(
-        board: GameBoard(
+      final state = game.State(
+        board: game.Board(
           rows: [
             [1, 1, 2, 2],
             [3, 3, 1, 1],
@@ -140,7 +140,7 @@ void main() {
         ),
       );
       final moveResult = state.moveWithResult(
-        direction: MoveDirection.left,
+        direction: game.MoveDirection.left,
         random: Random(42),
       );
 
@@ -163,8 +163,11 @@ void main() {
           [1, 2, null],
         ],
       ]) {
-        final moveResult = GameState(board: GameBoard(rows: rows))
-            .moveWithResult(direction: MoveDirection.left, random: Random(42));
+        final moveResult = game.State(board: game.Board(rows: rows))
+            .moveWithResult(
+              direction: game.MoveDirection.left,
+              random: Random(42),
+            );
 
         expect(moveResult.movements.clear, throwsUnsupportedError);
         expect(moveResult.merges.clear, throwsUnsupportedError);
@@ -173,8 +176,8 @@ void main() {
     });
 
     test('tracks tile movements and merges to the left', () {
-      final state = GameState(
-        board: GameBoard(
+      final state = game.State(
+        board: game.Board(
           rows: [
             [1, null, 1, 2],
           ],
@@ -182,7 +185,7 @@ void main() {
       );
 
       final moveResult = state.moveWithResult(
-        direction: MoveDirection.left,
+        direction: game.MoveDirection.left,
         random: Random(42),
       );
 
@@ -221,8 +224,8 @@ void main() {
     });
 
     test('tracks merges when moving down', () {
-      final state = GameState(
-        board: GameBoard(
+      final state = game.State(
+        board: game.Board(
           rows: [
             [1],
             [null],
@@ -232,7 +235,7 @@ void main() {
       );
 
       final moveResult = state.moveWithResult(
-        direction: MoveDirection.down,
+        direction: game.MoveDirection.down,
         random: Random(42),
       );
 
@@ -246,8 +249,8 @@ void main() {
     });
 
     test('returns no events for an unchanged move', () {
-      final state = GameState(
-        board: GameBoard(
+      final state = game.State(
+        board: game.Board(
           rows: [
             [1, 2, null, null],
           ],
@@ -258,7 +261,7 @@ void main() {
       final expectedRandom = Random(42);
 
       final moveResult = state.moveWithResult(
-        direction: MoveDirection.left,
+        direction: game.MoveDirection.left,
         random: random,
       );
 

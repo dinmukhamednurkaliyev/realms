@@ -1,14 +1,14 @@
 import 'dart:math';
 
-import 'package:realms/game/engine.dart';
+import 'package:realms/game/game.dart' as game;
 import 'package:test/test.dart';
 
 void main() {
   group('Move limit configuration', () {
     test('has no move limit by default', () {
-      final configuration = GameConfiguration();
-      final state = GameState(
-        board: GameBoard(
+      final configuration = game.Configuration();
+      final state = game.State(
+        board: game.Board(
           rows: [
             [1, null],
           ],
@@ -21,16 +21,16 @@ void main() {
     });
 
     test('rejects non-positive move limits', () {
-      expect(() => GameConfiguration(moveLimit: 0), throwsArgumentError);
-      expect(() => GameConfiguration(moveLimit: -1), throwsArgumentError);
+      expect(() => game.Configuration(moveLimit: 0), throwsArgumentError);
+      expect(() => game.Configuration(moveLimit: -1), throwsArgumentError);
     });
   });
 
   group('Move counting', () {
     test('counts successful moves and updates remaining moves', () {
-      final configuration = GameConfiguration(rowCount: 1, moveLimit: 2);
-      final state = GameState(
-        board: GameBoard(
+      final configuration = game.Configuration(rowCount: 1, moveLimit: 2);
+      final state = game.State(
+        board: game.Board(
           rows: [
             [null, 1, null, null],
           ],
@@ -39,7 +39,7 @@ void main() {
       );
 
       final nextState = state.move(
-        direction: MoveDirection.left,
+        direction: game.MoveDirection.left,
         random: Random(42),
       );
 
@@ -51,19 +51,19 @@ void main() {
     });
 
     test('does not count a move that leaves the board unchanged', () {
-      final state = GameState(
-        board: GameBoard(
+      final state = game.State(
+        board: game.Board(
           rows: [
             [1, 2, null, null],
           ],
         ),
-        configuration: GameConfiguration(rowCount: 1, moveLimit: 2),
+        configuration: game.Configuration(rowCount: 1, moveLimit: 2),
       );
       final random = Random(42);
       final expectedRandom = Random(42);
 
       final result = state.moveWithResult(
-        direction: MoveDirection.left,
+        direction: game.MoveDirection.left,
         random: random,
       );
 
@@ -75,17 +75,17 @@ void main() {
     });
 
     test('restores the move count and rejects invalid snapshots', () {
-      final configuration = GameConfiguration(
+      final configuration = game.Configuration(
         rowCount: 1,
         columnCount: 2,
         moveLimit: 3,
       );
-      final board = GameBoard(
+      final board = game.Board(
         rows: [
           [1, null],
         ],
       );
-      final restored = GameState(
+      final restored = game.State(
         board: board,
         configuration: configuration,
         movesMade: 2,
@@ -96,7 +96,7 @@ void main() {
       expect(restored.movesRemaining, 1);
       expect(restored.score, 100);
       expect(
-        () => GameState(
+        () => game.State(
           board: board,
           configuration: configuration,
           movesMade: -1,
@@ -104,8 +104,11 @@ void main() {
         throwsArgumentError,
       );
       expect(
-        () =>
-            GameState(board: board, configuration: configuration, movesMade: 4),
+        () => game.State(
+          board: board,
+          configuration: configuration,
+          movesMade: 4,
+        ),
         throwsArgumentError,
       );
     });
@@ -113,9 +116,9 @@ void main() {
 
   group('Move limit outcomes', () {
     test('loses after the last move even if the board can still slide', () {
-      final configuration = GameConfiguration(rowCount: 1, moveLimit: 1);
-      final state = GameState(
-        board: GameBoard(
+      final configuration = game.Configuration(rowCount: 1, moveLimit: 1);
+      final state = game.State(
+        board: game.Board(
           rows: [
             [null, 1, null, null],
           ],
@@ -124,22 +127,22 @@ void main() {
       );
 
       final nextState = state.move(
-        direction: MoveDirection.left,
+        direction: game.MoveDirection.left,
         random: Random(42),
       );
 
-      expect(state.status, GameStatus.inProgress);
+      expect(state.status, game.Status.inProgress);
       expect(nextState.movesMade, 1);
       expect(nextState.movesRemaining, 0);
       expect(nextState.hasAvailableMoves, isFalse);
-      expect(nextState.status, GameStatus.lost);
+      expect(nextState.status, game.Status.lost);
       expect(nextState.isGameOver, isTrue);
     });
 
     test('does not move or draw randomness after exhausting the limit', () {
-      final configuration = GameConfiguration(rowCount: 1, moveLimit: 1);
-      final state = GameState(
-        board: GameBoard(
+      final configuration = game.Configuration(rowCount: 1, moveLimit: 1);
+      final state = game.State(
+        board: game.Board(
           rows: [
             [1, null, null, null],
           ],
@@ -151,7 +154,7 @@ void main() {
       final expectedRandom = Random(42);
 
       final result = state.moveWithResult(
-        direction: MoveDirection.right,
+        direction: game.MoveDirection.right,
         random: random,
       );
 
@@ -167,13 +170,13 @@ void main() {
     });
 
     test('awards victory when the final permitted move reaches the goal', () {
-      final configuration = GameConfiguration(
+      final configuration = game.Configuration(
         rowCount: 1,
         moveLimit: 1,
-        objective: ReachTileLevelObjective(targetLevel: 2),
+        objective: game.ReachTileLevelObjective(targetLevel: 2),
       );
-      final state = GameState(
-        board: GameBoard(
+      final state = game.State(
+        board: game.Board(
           rows: [
             [1, 1, null, null],
           ],
@@ -182,7 +185,7 @@ void main() {
       );
 
       final result = state.moveWithResult(
-        direction: MoveDirection.left,
+        direction: game.MoveDirection.left,
         random: Random(42),
       );
 
@@ -190,7 +193,7 @@ void main() {
       expect(result.scoreGained, 40);
       expect(result.state.movesRemaining, 0);
       expect(result.state.hasCompletedObjective, isTrue);
-      expect(result.state.status, GameStatus.won);
+      expect(result.state.status, game.Status.won);
       expect(result.state.isGameOver, isTrue);
     });
   });

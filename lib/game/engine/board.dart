@@ -7,9 +7,9 @@ typedef BoardPosition = ({int rowIndex, int columnIndex});
 /// An immutable, non-empty rectangular grid of tile levels.
 ///
 /// A `null` cell is empty. The board preserves any supplied integer, leaving
-/// the validation of playable tile levels to `GameState`.
+/// the validation of playable tile levels to `State`.
 /// Two boards are equal when they have the same shape and cell values.
-final class GameBoard {
+final class Board {
   /// Creates a board by deeply copying and freezing [rows].
   ///
   /// Throws an [ArgumentError] if the grid is empty or not rectangular.
@@ -30,7 +30,7 @@ final class GameBoard {
       throw ArgumentError('Game board dimensions must be positive.');
     }
 
-    return GameBoard(
+    return Board(
       rows: List.generate(
         rowCount,
         (_) => List<int?>.filled(columnCount, null),
@@ -64,7 +64,7 @@ final class GameBoard {
       return true;
     }
 
-    if (other is! GameBoard) {
+    if (other is! Board) {
       return false;
     }
 

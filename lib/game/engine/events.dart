@@ -1,4 +1,4 @@
-import 'package:realms/game/engine/board.dart';
+import 'board.dart';
 
 /// Describes an original tile sliding to a different board position.
 ///

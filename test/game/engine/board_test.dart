@@ -1,20 +1,20 @@
-import 'package:realms/game/engine.dart';
+import 'package:realms/game/game.dart' as game;
 import 'package:test/test.dart';
 
 const _classicBoardSize = 4;
 
 void main() {
   test('BoardPosition identifies occupied and empty cells', () {
-    final board = GameBoard(
+    final board = game.Board(
       rows: [
         [1, null],
       ],
     );
-    const positions = <BoardPosition>[
+    const positions = <game.BoardPosition>[
       (rowIndex: 0, columnIndex: 0),
       (rowIndex: 0, columnIndex: 1),
     ];
-    final movement = TileMovement(
+    final movement = game.TileMovement(
       from: positions.first,
       to: positions.last,
       level: 1,
@@ -38,12 +38,12 @@ void main() {
 
   group('Board', () {
     test('rejects an empty board', () {
-      expect(() => GameBoard(rows: []), throwsArgumentError);
+      expect(() => game.Board(rows: []), throwsArgumentError);
     });
 
     for (final rowCount in [3, 5]) {
       test('supports $rowCount rows', () {
-        final board = GameBoard(
+        final board = game.Board(
           rows: List.generate(
             rowCount,
             (_) => List<int?>.filled(_classicBoardSize, null),
@@ -61,13 +61,13 @@ void main() {
           final rows = _emptyRows();
           rows[rowIndex] = List<int?>.filled(columnCount, null);
 
-          expect(() => GameBoard(rows: rows), throwsArgumentError);
+          expect(() => game.Board(rows: rows), throwsArgumentError);
         });
       }
     }
 
     test('provides access to tiles by position', () {
-      final board = GameBoard(
+      final board = game.Board(
         rows: [
           [2, 4, null, null],
           [null, null, null, null],
@@ -84,7 +84,7 @@ void main() {
 
     for (final (rowIndex, columnIndex) in [(-1, 0), (4, 0), (0, -1), (0, 4)]) {
       test('rejects coordinates ($rowIndex, $columnIndex)', () {
-        final board = GameBoard(rows: _emptyRows());
+        final board = game.Board(rows: _emptyRows());
 
         expect(
           () => board.tileAt(rowIndex: rowIndex, columnIndex: columnIndex),
@@ -97,7 +97,7 @@ void main() {
       final rows = _emptyRows();
       rows[0] = [0, -2, 1, 3];
 
-      final board = GameBoard(rows: rows);
+      final board = game.Board(rows: rows);
 
       expect(board.rows, rows);
       expect(board.tileAt(rowIndex: 0, columnIndex: 0), 0);
@@ -106,7 +106,7 @@ void main() {
 
     test('copies both the outer list and each row', () {
       final rows = _emptyRows();
-      final board = GameBoard(rows: rows);
+      final board = game.Board(rows: rows);
 
       rows[0][0] = 2;
       rows[1] = [4, 4, 4, 4];
@@ -117,7 +117,7 @@ void main() {
 
     test('copies shared input rows', () {
       final sharedRow = <int?>[2, null, null, null];
-      final board = GameBoard(rows: List.filled(_classicBoardSize, sharedRow));
+      final board = game.Board(rows: List.filled(_classicBoardSize, sharedRow));
 
       sharedRow[0] = 4;
 
@@ -125,7 +125,7 @@ void main() {
     });
 
     test('prevents external modifications at both list levels', () {
-      final board = GameBoard(rows: _emptyRows());
+      final board = game.Board(rows: _emptyRows());
 
       expect(() => board.rows[0][0] = 4, throwsUnsupportedError);
       expect(() => board.rows[0].add(4), throwsUnsupportedError);
@@ -141,9 +141,9 @@ void main() {
         final rows = _emptyRows();
         rows[0] = [2, 4, null, null];
 
-        final first = GameBoard(rows: rows);
-        final second = GameBoard(rows: rows);
-        final third = GameBoard(rows: rows);
+        final first = game.Board(rows: rows);
+        final second = game.Board(rows: rows);
+        final third = game.Board(rows: rows);
 
         expect(first, same(first));
         expect(first == first, isTrue);
@@ -164,10 +164,10 @@ void main() {
           columnIndex++
         ) {
           test('includes cell ($rowIndex, $columnIndex)', () {
-            final emptyBoard = GameBoard(rows: _emptyRows());
+            final emptyBoard = game.Board(rows: _emptyRows());
             final rows = _emptyRows();
             rows[rowIndex][columnIndex] = 0;
-            final occupiedBoard = GameBoard(rows: rows);
+            final occupiedBoard = game.Board(rows: rows);
 
             expect(emptyBoard == occupiedBoard, isFalse);
             expect(occupiedBoard == emptyBoard, isFalse);
@@ -183,19 +183,19 @@ void main() {
         differentRows[0] = [4, 2, null, null];
 
         expect(
-          GameBoard(rows: firstRows),
-          isNot(GameBoard(rows: differentRows)),
+          game.Board(rows: firstRows),
+          isNot(game.Board(rows: differentRows)),
         );
       });
 
       test('distinguishes different board shapes', () {
-        final singleRowBoard = GameBoard(
+        final singleRowBoard = game.Board(
           rows: [
             [1, 2, 3, 4],
           ],
         );
 
-        final squareBoard = GameBoard(
+        final squareBoard = game.Board(
           rows: [
             [1, 2],
             [3, 4],
@@ -208,7 +208,7 @@ void main() {
       test('does not equate a board with raw rows or another object', () {
         final rows = _emptyRows();
         final Object rawRows = rows;
-        final board = GameBoard(rows: rows);
+        final board = game.Board(rows: rows);
 
         expect(board == rawRows, isFalse);
         expect(board == Object(), isFalse);
@@ -216,8 +216,8 @@ void main() {
 
       test('remains stable after constructor input changes', () {
         final rows = _emptyRows();
-        final board = GameBoard(rows: rows);
-        final equalBoard = GameBoard(rows: rows);
+        final board = game.Board(rows: rows);
+        final equalBoard = game.Board(rows: rows);
         final savedBoards = {board: 'saved'};
         final originalHashCode = board.hashCode;
 
@@ -233,7 +233,7 @@ void main() {
 
   group('Empty board construction', () {
     test('creates a rectangular board with every cell empty', () {
-      final board = GameBoard.empty(rowCount: 2, columnCount: 3);
+      final board = game.Board.empty(rowCount: 2, columnCount: 3);
 
       expect(board.rows, [
         [null, null, null],
@@ -244,7 +244,7 @@ void main() {
     for (final (rowCount, columnCount) in [(0, 2), (-1, 2), (2, 0), (2, -1)]) {
       test('rejects dimensions ${rowCount}x$columnCount', () {
         expect(
-          () => GameBoard.empty(rowCount: rowCount, columnCount: columnCount),
+          () => game.Board.empty(rowCount: rowCount, columnCount: columnCount),
           throwsA(
             isA<ArgumentError>().having(
               (error) => error.message,

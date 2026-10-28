@@ -1,13 +1,13 @@
 import 'dart:math';
 
-import 'package:realms/game/engine.dart';
+import 'package:realms/game/game.dart' as game;
 import 'package:test/test.dart';
 
 void main() {
   group('Scoring', () {
     test('starts with zero points', () {
-      final state = GameState.start(
-        configuration: GameConfiguration(),
+      final state = game.State.start(
+        configuration: game.Configuration(),
         random: Random(42),
       );
 
@@ -15,8 +15,8 @@ void main() {
     });
 
     test('awards points for every merge', () {
-      final state = GameState(
-        board: GameBoard(
+      final state = game.State(
+        board: game.Board(
           rows: [
             [1, 1, 2, 2],
             [3, 3, null, null],
@@ -25,7 +25,7 @@ void main() {
       );
 
       final nextState = state.move(
-        direction: MoveDirection.left,
+        direction: game.MoveDirection.left,
         random: Random(42),
       );
 
@@ -37,13 +37,13 @@ void main() {
     });
 
     test('supports a custom score multiplier', () {
-      final configuration = GameConfiguration(
+      final configuration = game.Configuration(
         rowCount: 1,
         mergeScoreMultiplier: 25,
       );
 
-      final state = GameState(
-        board: GameBoard(
+      final state = game.State(
+        board: game.Board(
           rows: [
             [1, 1, null, null],
           ],
@@ -52,7 +52,7 @@ void main() {
       );
 
       final nextState = state.move(
-        direction: MoveDirection.left,
+        direction: game.MoveDirection.left,
         random: Random(42),
       );
 
@@ -60,8 +60,8 @@ void main() {
     });
 
     test('preserves score when moving without merging', () {
-      final state = GameState(
-        board: GameBoard(
+      final state = game.State(
+        board: game.Board(
           rows: [
             [null, 1, 2, null],
           ],
@@ -70,7 +70,7 @@ void main() {
       );
 
       final nextState = state.move(
-        direction: MoveDirection.left,
+        direction: game.MoveDirection.left,
         random: Random(42),
       );
 
@@ -79,8 +79,8 @@ void main() {
     });
 
     test('keeps the same state when movement is impossible', () {
-      final state = GameState(
-        board: GameBoard(
+      final state = game.State(
+        board: game.Board(
           rows: [
             [1, 2, null, null],
           ],
@@ -89,7 +89,7 @@ void main() {
       );
 
       final nextState = state.move(
-        direction: MoveDirection.left,
+        direction: game.MoveDirection.left,
         random: Random(42),
       );
 
@@ -99,8 +99,8 @@ void main() {
 
     test('rejects negative scores', () {
       expect(
-        () => GameState(
-          board: GameBoard(
+        () => game.State(
+          board: game.Board(
             rows: [
               [1, null],
             ],

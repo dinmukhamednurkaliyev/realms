@@ -1,23 +1,23 @@
 import 'dart:math';
 
-import 'package:realms/game/engine.dart';
+import 'package:realms/game/game.dart' as game;
 import 'package:test/test.dart';
 
 void main() {
   group('Campaign', () {
     test('defines distinct Campaign stages using shared configuration', () {
-      final firstStage = CampaignLevel(
+      final firstStage = game.CampaignLevel(
         number: 1,
-        configuration: GameConfiguration(
+        configuration: game.Configuration(
           rowCount: 3,
           columnCount: 3,
-          objective: ReachTileLevelObjective(targetLevel: 3),
+          objective: game.ReachTileLevelObjective(targetLevel: 3),
         ),
       );
-      final secondStage = CampaignLevel(
+      final secondStage = game.CampaignLevel(
         number: 2,
-        configuration: GameConfiguration(
-          objective: ReachTileLevelObjective(targetLevel: 5),
+        configuration: game.Configuration(
+          objective: game.ReachTileLevelObjective(targetLevel: 5),
         ),
       );
 
@@ -26,7 +26,7 @@ void main() {
       expect(secondStage.number, 2);
       expect(secondStage.configuration.rowCount, 4);
 
-      final state = GameState.start(
+      final state = game.State.start(
         configuration: firstStage.configuration,
         random: Random(42),
       );
@@ -36,10 +36,10 @@ void main() {
 
     test('rejects invalid campaign level numbers', () {
       expect(
-        () => CampaignLevel(
+        () => game.CampaignLevel(
           number: 0,
-          configuration: GameConfiguration(
-            objective: ReachTileLevelObjective(targetLevel: 3),
+          configuration: game.Configuration(
+            objective: game.ReachTileLevelObjective(targetLevel: 3),
           ),
         ),
         throwsArgumentError,
@@ -48,7 +48,8 @@ void main() {
 
     test('requires a victory objective', () {
       expect(
-        () => CampaignLevel(number: 1, configuration: GameConfiguration()),
+        () =>
+            game.CampaignLevel(number: 1, configuration: game.Configuration()),
         throwsArgumentError,
       );
     });

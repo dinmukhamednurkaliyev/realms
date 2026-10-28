@@ -1,6 +1,6 @@
 import 'dart:math';
 
-import 'package:realms/game/engine.dart';
+import 'package:realms/game/game.dart' as game;
 import 'package:test/test.dart';
 
 void main() {
@@ -10,7 +10,7 @@ void main() {
         'agrees with moves for every small ${rowCount}x$columnCount board',
         () {
           const cellValues = <int?>[null, 1, 2];
-          final configuration = GameConfiguration(
+          final configuration = game.Configuration(
             rowCount: rowCount,
             columnCount: columnCount,
             initialTileCount: 1,
@@ -32,12 +32,12 @@ void main() {
                 return cellValue;
               }),
             );
-            final state = GameState(
-              board: GameBoard(rows: rows),
+            final state = game.State(
+              board: game.Board(rows: rows),
               configuration: configuration,
             );
             final moveResults = [
-              for (final direction in MoveDirection.values)
+              for (final direction in game.MoveDirection.values)
                 state.moveWithResult(direction: direction, random: Random(42)),
             ];
             final anyMoveChangesBoard = moveResults.any(
@@ -56,8 +56,8 @@ void main() {
     }
 
     test('has no available moves on a full blocked board', () {
-      final state = GameState(
-        board: GameBoard(
+      final state = game.State(
+        board: game.Board(
           rows: [
             [1, 2],
             [2, 1],
@@ -70,8 +70,8 @@ void main() {
     });
 
     test('allows merges between adjacent tiles on a full board', () {
-      final state = GameState(
-        board: GameBoard(
+      final state = game.State(
+        board: game.Board(
           rows: [
             [1, 1],
             [2, 3],
@@ -84,8 +84,8 @@ void main() {
     });
 
     test('allows slides without merging', () {
-      final state = GameState(
-        board: GameBoard(
+      final state = game.State(
+        board: game.Board(
           rows: [
             [1, null],
             [2, 3],
@@ -98,8 +98,8 @@ void main() {
     });
 
     test('does not mistake an entirely empty board for a playable board', () {
-      final state = GameState(
-        board: GameBoard.empty(rowCount: 2, columnCount: 3),
+      final state = game.State(
+        board: game.Board.empty(rowCount: 2, columnCount: 3),
       );
 
       expect(state.hasAvailableMoves, isFalse);
@@ -108,8 +108,8 @@ void main() {
 
     test('handles a single-cell board', () {
       for (final level in <int?>[null, 1]) {
-        final state = GameState(
-          board: GameBoard(
+        final state = game.State(
+          board: game.Board(
             rows: [
               [level],
             ],
@@ -122,15 +122,15 @@ void main() {
     });
 
     test('cannot merge two tiles at the maximum evolution level', () {
-      final configuration = GameConfiguration(
+      final configuration = game.Configuration(
         rowCount: 1,
         columnCount: 2,
         maxTileLevel: 3,
         spawnWeights: {1: 1},
       );
 
-      final state = GameState(
-        board: GameBoard(
+      final state = game.State(
+        board: game.Board(
           rows: [
             [3, 3],
           ],
@@ -143,15 +143,15 @@ void main() {
     });
 
     test('can merge equal tiles below the maximum evolution level', () {
-      final configuration = GameConfiguration(
+      final configuration = game.Configuration(
         rowCount: 1,
         columnCount: 2,
         maxTileLevel: 3,
         spawnWeights: {1: 1},
       );
 
-      final state = GameState(
-        board: GameBoard(
+      final state = game.State(
+        board: game.Board(
           rows: [
             [2, 2],
           ],
@@ -164,8 +164,8 @@ void main() {
     });
 
     test('detects vertical merges on a rectangular board', () {
-      final state = GameState(
-        board: GameBoard(
+      final state = game.State(
+        board: game.Board(
           rows: [
             [1, 2],
             [1, 3],
@@ -179,14 +179,14 @@ void main() {
     });
 
     test('checking move availability does not change the state', () {
-      final board = GameBoard(
+      final board = game.Board(
         rows: [
           [1, null],
           [2, 3],
         ],
       );
 
-      final state = GameState(board: board, score: 150);
+      final state = game.State(board: board, score: 150);
 
       expect(state.hasAvailableMoves, isTrue);
       expect(state.isGameOver, isFalse);
