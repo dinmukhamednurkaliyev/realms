@@ -1,12 +1,18 @@
-
 {
-  "@@locale": "en",
   "appTitle": "REALMS",
   "tagline": "Build. Merge. Evolve.",
   "startGame": "Start game",
   "classicMode": "Classic",
   "newGame": "New game",
   "scoreLabel": "SCORE",
+  "score": {
+    "message": "{points}",
+    "placeholders": {
+      "points": {
+        "type": "int"
+      }
+    }
+  },
   "gameOver": "No moves left",
   "moveHint": "Move tiles using the arrows.",
   "moveLeft": "Move left",

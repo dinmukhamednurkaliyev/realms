@@ -1,12 +1,18 @@
-
 {
-  "@@locale": "ru",
   "appTitle": "REALMS",
   "tagline": "Строй. Объединяй. Развивай.",
   "startGame": "Начать игру",
   "classicMode": "Классический режим",
   "newGame": "Новая игра",
   "scoreLabel": "СЧЁТ",
+  "score": {
+    "message": "{points}",
+    "placeholders": {
+      "points": {
+        "type": "int"
+      }
+    }
+  },
   "gameOver": "Ходов больше нет",
   "moveHint": "Перемещайте плитки стрелками.",
   "moveLeft": "Влево",

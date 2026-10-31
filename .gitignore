@@ -12,10 +12,6 @@
 app.*.symbols
 app.*.map.json
 
-# Localization is regenerated from tracked ARB files; other generated Dart stays tracked.
-/lib/app/localization/localization.dart
-/lib/app/localization/localization_*.dart
-
 # Platform build artifacts; Android SDK paths and signing keys use android/.gitignore.
 /android/.kotlin/
 /android/app/debug/

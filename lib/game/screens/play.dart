@@ -2,44 +2,99 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:realms/app/localization/localization.dart';
 import 'package:realms/game/engine/engine.dart';
-import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-part 'play.g.dart';
-
-/// Holds the current Classic game snapshot for the open play screen.
-@riverpod
-class PlaySession extends _$PlaySession {
-  final Random _random = Random();
-
-  /// Starts a new game when the session is first observed.
-  @override
-  GameState build() {
-    return GameState.start(configuration: GameConfiguration(), random: _random);
-  }
-
-  /// Restarts the game with the same configuration.
-  void startNewGame() {
-    state = GameState.start(
-      configuration: state.configuration,
+/// Coordinates a play session and its persisted, one-time instructions.
+final class PlayController extends ChangeNotifier {
+  /// Randomness and tutorial storage can be supplied for deterministic tests.
+  new({Random? random, PlayTutorialStore? tutorialStore})
+    : _random = random ?? Random(),
+      _tutorialStore = tutorialStore ?? _PreferencesPlayTutorialStore() {
+    _state = GameState.start(
+      configuration: GameConfiguration(),
       random: _random,
     );
+    ready = _loadTutorial();
   }
 
-  /// Applies a direction only while the game is in progress.
+  final Random _random;
+  final PlayTutorialStore _tutorialStore;
+  late GameState _state;
+  bool _tutorialLoaded = false;
+  bool _showTutorial = false;
+  bool _disposed = false;
+
+  /// Completes after reading the tutorial preference, including read failures.
+  late final Future<void> ready;
+
+  /// The immutable engine snapshot for this session.
+  GameState get state => _state;
+
+  /// False while the persisted tutorial preference is being read.
+  bool get tutorialLoaded => _tutorialLoaded;
+
+  /// Whether the player must acknowledge the instructions.
+  bool get showTutorial => _showTutorial;
+
+  /// Input is accepted only after the tutorial and while the game is active.
+  bool get canMove =>
+      !_disposed &&
+      _tutorialLoaded &&
+      !_showTutorial &&
+      _state.status == GameStatus.inProgress;
+
+  Future<void> _loadTutorial() async {
+    var showTutorial = true;
+    try {
+      showTutorial = !await _tutorialStore.hasSeenTutorial();
+    } on Object catch (error) {
+      debugPrint('Could not read the play tutorial preference: $error');
+    }
+    // A pending read must not resurrect a dismissed hint or a disposed screen.
+    if (_disposed || _tutorialLoaded) return;
+    _tutorialLoaded = true;
+    _showTutorial = showTutorial;
+    notifyListeners();
+  }
+
+  /// Hides the hint immediately, even if persistence is unavailable.
+  Future<void> dismissTutorial() async {
+    if (_disposed) return;
+    _tutorialLoaded = true;
+    _showTutorial = false;
+    notifyListeners();
+    try {
+      await _tutorialStore.markTutorialSeen();
+    } on Object catch (error) {
+      debugPrint('Could not save the play tutorial preference: $error');
+    }
+  }
+
+  /// Restarts with the same game configuration and random source.
+  void startNewGame() {
+    if (_disposed) return;
+    _state = GameState.start(
+      configuration: _state.configuration,
+      random: _random,
+    );
+    notifyListeners();
+  }
+
+  /// Delegates a player action to the engine, publishing only changed states.
   void move(MoveDirection direction) {
-    if (state.status != GameStatus.inProgress) {
-      return;
-    }
+    if (!canMove) return;
+    final result = _state.moveWithResult(direction: direction, random: _random);
+    if (!result.changed) return;
+    _state = result.state;
+    notifyListeners();
+  }
 
-    final result = state.moveWithResult(direction: direction, random: _random);
-
-    if (result.changed) {
-      state = result.state;
-    }
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
   }
 }
 
@@ -56,7 +111,7 @@ abstract interface class PlayTutorialStore {
 
 final class _PreferencesPlayTutorialStore implements PlayTutorialStore {
   static const _tutorialSeenKey = 'realms.play.tutorial_seen';
-  final SharedPreferencesAsync _preferences = SharedPreferencesAsync();
+  late final SharedPreferencesAsync _preferences = SharedPreferencesAsync();
 
   @override
   Future<bool> hasSeenTutorial() async {
@@ -69,54 +124,49 @@ final class _PreferencesPlayTutorialStore implements PlayTutorialStore {
   }
 }
 
-/// Storage is replaceable in tests; it is not exported from the Game feature.
-final playTutorialStoreProvider = Provider<PlayTutorialStore>(
-  (ref) => _PreferencesPlayTutorialStore(),
-);
-
-/// Manages the one-time How to Play hint, independently of game rules.
-@riverpod
-class PlayTutorial extends _$PlayTutorial {
-  /// Reads the persisted acknowledgment when the screen first opens.
-  @override
-  Future<bool> build() async {
-    try {
-      return !await ref.read(playTutorialStoreProvider).hasSeenTutorial();
-    } on Exception catch (error) {
-      debugPrint('Could not read the play tutorial preference: $error');
-      return true;
-    }
-  }
-
-  /// Hides the hint immediately and persists the acknowledgment.
-  Future<void> dismiss() async {
-    state = const AsyncData(false);
-
-    try {
-      await ref.read(playTutorialStoreProvider).markTutorialSeen();
-    } on Exception catch (error) {
-      debugPrint('Could not save the play tutorial preference: $error');
-    }
-  }
-}
-
 /// Displays a Classic game with touch and keyboard controls.
-final class PlayScreen extends ConsumerStatefulWidget {
+final class PlayScreen extends StatefulWidget {
   /// Creates the Classic game screen.
-  const new({super.key});
+  const new({this.controller, super.key});
+
+  /// An optional externally owned session; otherwise the screen owns one.
+  final PlayController? controller;
 
   @override
-  ConsumerState<PlayScreen> createState() => _PlayScreenState();
+  State<PlayScreen> createState() => _PlayScreenState();
 }
 
-final class _PlayScreenState extends ConsumerState<PlayScreen> {
+final class _PlayScreenState extends State<PlayScreen> {
   static const double _minimumSwipeDistance = 30;
 
   final FocusNode _focusNode = FocusNode(debugLabel: 'Realms play controls');
   Offset _panDistance = Offset.zero;
 
+  late PlayController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = widget.controller ?? PlayController();
+    _controller.addListener(_onChanged);
+  }
+
+  void _onChanged() => setState(() {});
+
+  @override
+  void didUpdateWidget(PlayScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller == widget.controller) return;
+    _controller.removeListener(_onChanged);
+    if (oldWidget.controller == null) _controller.dispose();
+    _controller = widget.controller ?? PlayController();
+    _controller.addListener(_onChanged);
+  }
+
   @override
   void dispose() {
+    _controller.removeListener(_onChanged);
+    if (widget.controller == null) _controller.dispose();
     _focusNode.dispose();
     super.dispose();
   }
@@ -151,7 +201,7 @@ final class _PlayScreenState extends ConsumerState<PlayScreen> {
     }
 
     if (canMove) {
-      ref.read(playSessionProvider.notifier).move(direction);
+      _controller.move(direction);
     }
 
     return KeyEventResult.handled;
@@ -175,11 +225,11 @@ final class _PlayScreenState extends ConsumerState<PlayScreen> {
         ? (distance.dx < 0 ? MoveDirection.left : MoveDirection.right)
         : (distance.dy < 0 ? MoveDirection.up : MoveDirection.down);
 
-    ref.read(playSessionProvider.notifier).move(direction);
+    _controller.move(direction);
   }
 
   Future<void> _dismissTutorial() async {
-    await ref.read(playTutorialProvider.notifier).dismiss();
+    await _controller.dismissTutorial();
     if (mounted) {
       _focusNode.requestFocus();
     }
@@ -187,18 +237,10 @@ final class _PlayScreenState extends ConsumerState<PlayScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final strings = Strings.of(context);
-    final gameState = ref.watch(playSessionProvider);
-    final tutorial = ref.watch(playTutorialProvider);
-    final showTutorial = tutorial.when(
-      data: (visible) => visible,
-      loading: () => false,
-      error: (error, stackTrace) => true,
-    );
-    final canMove =
-        tutorial is AsyncData<bool> &&
-        !tutorial.value &&
-        gameState.status == GameStatus.inProgress;
+    final localization = AppLocalization.of(context);
+    final gameState = _controller.state;
+    final showTutorial = _controller.showTutorial;
+    final canMove = _controller.canMove;
     final board = gameState.board;
     final colorScheme = Theme.of(context).colorScheme;
 
@@ -208,12 +250,11 @@ final class _PlayScreenState extends ConsumerState<PlayScreen> {
       onKeyEvent: (node, event) => _handleKeyEvent(event, canMove: canMove),
       child: Scaffold(
         appBar: AppBar(
-          title: Text(strings.classicMode),
+          title: Text(localization.classicMode),
           actions: [
             IconButton(
-              onPressed: () =>
-                  ref.read(playSessionProvider.notifier).startNewGame(),
-              tooltip: strings.newGame,
+              onPressed: () => _controller.startNewGame(),
+              tooltip: localization.newGame,
               icon: const Icon(Icons.refresh),
             ),
           ],
@@ -228,9 +269,9 @@ final class _PlayScreenState extends ConsumerState<PlayScreen> {
                     padding: const EdgeInsets.all(20),
                     child: Column(
                       children: [
-                        Text(strings.scoreLabel),
+                        Text(localization.scoreLabel),
                         Text(
-                          '${gameState.score}',
+                          localization.score(points: gameState.score),
                           style: Theme.of(context).textTheme.headlineLarge,
                         ),
                         const SizedBox(height: 20),
@@ -296,9 +337,9 @@ final class _PlayScreenState extends ConsumerState<PlayScreen> {
                           ),
                         ),
                         if (gameState.status == GameStatus.won)
-                          Text(strings.youWon)
+                          Text(localization.youWon)
                         else if (gameState.status == GameStatus.lost)
-                          Text(strings.gameOver),
+                          Text(localization.gameOver),
                       ],
                     ),
                   ),
@@ -326,17 +367,17 @@ final class _PlayScreenState extends ConsumerState<PlayScreen> {
                             const Icon(Icons.touch_app_outlined, size: 52),
                             const SizedBox(height: 16),
                             Text(
-                              strings.howToPlayTitle,
+                              localization.howToPlayTitle,
                               style: Theme.of(context).textTheme.headlineSmall,
                             ),
                             const SizedBox(height: 12),
                             Text(
-                              strings.howToPlayDescription,
+                              localization.howToPlayDescription,
                               textAlign: TextAlign.center,
                             ),
                             const SizedBox(height: 8),
                             Text(
-                              strings.howToPlayKeyboard,
+                              localization.howToPlayKeyboard,
                               textAlign: TextAlign.center,
                               style: Theme.of(context).textTheme.bodySmall,
                             ),
@@ -345,7 +386,7 @@ final class _PlayScreenState extends ConsumerState<PlayScreen> {
                               width: double.infinity,
                               child: FilledButton(
                                 onPressed: _dismissTutorial,
-                                child: Text(strings.gotIt),
+                                child: Text(localization.gotIt),
                               ),
                             ),
                           ],

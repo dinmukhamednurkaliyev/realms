@@ -23,6 +23,19 @@ void main() {
     expect(result.exitCode, 0, reason: '${result.stderr}');
   });
 
+  test(
+    'allows generator tests to import the project resource script',
+    () async {
+      final result = await _checkArchitecture({
+        'scripts/resources.dart': 'void main() {}\n',
+        'test/scripts/resources_test.dart':
+            "import '../../scripts/resources.dart';\n",
+      });
+
+      expect(result.exitCode, 0, reason: '${result.stderr}');
+    },
+  );
+
   test('handles strings in conditional import expressions', () async {
     final result = await _checkArchitecture({
       'lib/game/engine/state.dart':
@@ -168,8 +181,7 @@ void main() {
     (
       name: 'Home importing a generated locale implementation',
       path: 'lib/home/home.dart',
-      source:
-          "import 'package:realms/app/localization/localization_en.dart';\n",
+      source: "import 'package:realms/app/localization/messages.dart';\n",
       message: 'Consume app/localization through',
     ),
     (
@@ -219,8 +231,8 @@ Future<ProcessResult> _checkArchitecture(Map<String, String> overrides) {
     'lib/app/appearance/appearance.dart':
         "export 'theme.dart' show lightTheme;\n",
     'lib/app/appearance/theme.dart': 'const lightTheme = 0;\n',
-    'lib/app/localization/localization.dart': 'class Strings {}\n',
-    'lib/app/localization/localization_en.dart': 'class StringsEn {}\n',
+    'lib/app/localization/localization.dart': 'class AppLocalization {}\n',
+    'lib/app/localization/messages.dart': 'class AppLocalization {}\n',
     'lib/home/home.dart':
         "import 'package:realms/app/localization/localization.dart';\n",
     'lib/game/game.dart': "export 'screens/play.dart' show PlayScreen;\n",

@@ -2,7 +2,6 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:realms/app/localization/localization.dart';
 import 'package:realms/game/engine/engine.dart';
@@ -23,21 +22,18 @@ final class _MemoryTutorialStore implements PlayTutorialStore {
 }
 
 Widget _testApplication(_MemoryTutorialStore store) {
-  return ProviderScope(
-    overrides: [playTutorialStoreProvider.overrideWith((ref) => store)],
-    child: const MaterialApp(
-      locale: Locale('en'),
-      localizationsDelegates: Strings.localizationsDelegates,
-      supportedLocales: Strings.supportedLocales,
-      home: PlayScreen(),
-    ),
+  final controller = PlayController(tutorialStore: store, random: Random(42));
+  addTearDown(controller.dispose);
+  return MaterialApp(
+    locale: const Locale('en'),
+    localizationsDelegates: AppLocalization.localizationsDelegates,
+    supportedLocales: AppLocalization.supportedLocales,
+    home: PlayScreen(controller: controller),
   );
 }
 
-GameState _currentGame(WidgetTester tester) {
-  final context = tester.element(find.byType(PlayScreen));
-  return ProviderScope.containerOf(context).read(playSessionProvider);
-}
+GameState _currentGame(WidgetTester tester) =>
+    tester.widget<PlayScreen>(find.byType(PlayScreen)).controller!.state;
 
 MoveDirection _availableDirection(GameState state) {
   return MoveDirection.values.firstWhere(
@@ -90,7 +86,7 @@ void main() {
     expect(store.seen, isTrue);
     expect(find.text('How to Play'), findsNothing);
 
-    // A new ProviderScope simulates leaving and reopening the play screen.
+    // A new controller simulates leaving and reopening the play screen.
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump();
     await tester.pumpWidget(_testApplication(store));

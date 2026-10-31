@@ -41,11 +41,15 @@ description = "Format all Dart source files"
 run = "dart format ."
 
 
-# Localization
+# Resources
 
-[tasks."localization:generate"]
-description = "Generate application strings from locale resources"
-run = "flutter gen-l10n"
+[tasks."resources:generate"]
+description = "Validate catalogs and generate typed application resources"
+run = "dart run scripts/resources.dart generate"
+
+[tasks."resources:check"]
+description = "Validate resources and verify committed generated output"
+run = "dart run scripts/resources.dart check"
 
 
 # Architecture
@@ -92,7 +96,7 @@ run = [
 [tasks.verify]
 description = "Run all project quality checks"
 run = [
-  { task = "localization:generate" },
+  { task = "resources:check" },
   { task = "format:check" },
   { task = "dependencies:check-order" },
   { task = "architecture:check" },
@@ -114,6 +118,7 @@ interactive = true
 
 [tasks."build:web"]
 description = "Build the production web application"
+depends = ["resources:check"]
 run = "flutter build web --release"
 
 
@@ -121,10 +126,12 @@ run = "flutter build web --release"
 
 [tasks."build:android:debug"]
 description = "Build the Android debug application"
+depends = ["resources:check"]
 run = "flutter build apk --debug"
 
 [tasks."build:android:bundle"]
 description = "Build the Android release application bundle"
+depends = ["resources:check"]
 run = "flutter build appbundle --release"
 
 

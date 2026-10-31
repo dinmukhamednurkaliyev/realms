@@ -4,7 +4,13 @@ import 'dart:io';
 const Map<String, ({String entryPoint, Set<String> dependencies})> _modules = {
   'app': (
     entryPoint: 'lib/app/app.dart',
-    dependencies: {'app/appearance', 'app/localization', 'game', 'home'},
+    dependencies: {
+      'app/appearance',
+      'app/assets',
+      'app/localization',
+      'game',
+      'home',
+    },
   ),
   'app/appearance': (
     entryPoint: 'lib/app/appearance/appearance.dart',
@@ -14,9 +20,19 @@ const Map<String, ({String entryPoint, Set<String> dependencies})> _modules = {
     entryPoint: 'lib/app/localization/localization.dart',
     dependencies: <String>{},
   ),
+  'app/assets': (
+    entryPoint: 'lib/app/assets/assets.dart',
+    dependencies: <String>{},
+  ),
   'game': (
     entryPoint: 'lib/game/game.dart',
-    dependencies: {'game/engine', 'game/modes', 'app/localization'},
+    dependencies: {
+      'game/engine',
+      'game/modes',
+      'app/assets',
+      'app/appearance',
+      'app/localization',
+    },
   ),
   'game/engine': (
     entryPoint: 'lib/game/engine/engine.dart',
@@ -28,11 +44,11 @@ const Map<String, ({String entryPoint, Set<String> dependencies})> _modules = {
   ),
   'home': (
     entryPoint: 'lib/home/home.dart',
-    dependencies: {'app/localization'},
+    dependencies: {'app/assets', 'app/appearance', 'app/localization'},
   ),
 };
 
-// Checks formatted, handwritten directives without a parser dependency.
+// Checks formatted directives without a parser dependency.
 void main() {
   final root = Directory.current.uri;
   final packageName = RegExp(
@@ -60,6 +76,12 @@ void main() {
     problems.add('Use module entry points, not a global realms.dart barrel.');
   }
   for (final module in _modules.values) {
+    // Asset catalogs exist only when the project has actual bundled assets.
+    if (module.entryPoint == 'lib/app/assets/assets.dart' &&
+        (!Directory('lib/app/assets').existsSync() ||
+            Directory('lib/app/assets').listSync().isEmpty)) {
+      continue;
+    }
     if (!File(module.entryPoint).existsSync()) {
       problems.add('Missing module entry point: ${module.entryPoint}.');
     }
@@ -67,7 +89,10 @@ void main() {
 
   for (final source in sources) {
     final sourcePath = source.uri.path.substring(root.path.length);
-    if (_isGenerated(sourcePath)) continue;
+    if (sourcePath.endsWith('.g.dart') ||
+        sourcePath.endsWith('.freezed.dart')) {
+      problems.add('$sourcePath: Use descriptive generated filenames.');
+    }
 
     final moduleName = _moduleOf(sourcePath);
     final module = _modules[moduleName];
@@ -141,6 +166,16 @@ void main() {
                 'lib/${uri.substring('package:$packageName/'.length)}',
               )
             : source.uri.resolve(uri);
+        // Generator tests exercise the project-owned script, outside lib/.
+        if (isTest &&
+            sourcePath.startsWith('test/scripts/') &&
+            !isExport &&
+            targetUri.path == root.resolve('scripts/resources.dart').path) {
+          if (!File.fromUri(targetUri).existsSync()) {
+            report('Missing resource generator: $uri.');
+          }
+          continue;
+        }
         if (targetUri.scheme != 'file' ||
             !targetUri.path.startsWith(root.resolve('lib/').path)) {
           report('Project dependencies must resolve inside lib/: $uri.');
@@ -229,6 +264,3 @@ String? _moduleOf(String path) {
   }
   return owner;
 }
-
-bool _isGenerated(String path) =>
-    path.startsWith('lib/app/localization/') && path.endsWith('.dart');

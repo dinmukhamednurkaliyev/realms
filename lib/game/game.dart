@@ -3,4 +3,4 @@
 /// Engine and mode declarations are exported by their own modules.
 library;
 
-export 'screens/play.dart' show PlayScreen;
+export 'screens/play.dart' show PlayController, PlayScreen;

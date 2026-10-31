@@ -1,0 +1,17 @@
+{
+  "assets": {
+    "directory": "assets",
+    "entryPoint": "lib/app/assets/assets.dart",
+    "output": "lib/app/assets/catalog.dart"
+  },
+  "localization": {
+    "directory": "assets/localization",
+    "locales": [
+      "en",
+      "ru"
+    ],
+    "fallback": "en",
+    "entryPoint": "lib/app/localization/localization.dart",
+    "output": "lib/app/localization/messages.dart"
+  }
+}

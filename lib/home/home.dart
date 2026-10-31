@@ -11,7 +11,7 @@ final class HomeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final strings = Strings.of(context);
+    final localization = AppLocalization.of(context);
     final typography = Theme.of(context).textTheme;
 
     return Scaffold(
@@ -27,10 +27,13 @@ final class HomeScreen extends StatelessWidget {
                   children: [
                     const Icon(Icons.castle_outlined, size: 88),
                     const SizedBox(height: 24),
-                    Text(strings.appTitle, style: typography.displayMedium),
+                    Text(
+                      localization.appTitle,
+                      style: typography.displayMedium,
+                    ),
                     const SizedBox(height: 8),
                     Text(
-                      strings.tagline,
+                      localization.tagline,
                       style: typography.titleMedium,
                       textAlign: TextAlign.center,
                     ),
@@ -41,7 +44,7 @@ final class HomeScreen extends StatelessWidget {
                         onPressed: onStartGame,
                         child: Padding(
                           padding: const EdgeInsets.symmetric(vertical: 14),
-                          child: Text(strings.startGame),
+                          child: Text(localization.startGame),
                         ),
                       ),
                     ),
