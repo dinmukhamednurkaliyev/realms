@@ -8,24 +8,15 @@ part of 'play.dart';
 
 // GENERATED CODE - DO NOT MODIFY BY HAND
 // ignore_for_file: type=lint, type=warning
-/// Manages the Classic game session displayed by [PlayScreen].
-///
-/// The engine owns the rules; this notifier owns only the current snapshot
-/// and the random source. It is automatically disposed when unused.
+/// Holds the current Classic game snapshot for the open play screen.
 
 @ProviderFor(PlaySession)
 final playSessionProvider = PlaySessionProvider._();
 
-/// Manages the Classic game session displayed by [PlayScreen].
-///
-/// The engine owns the rules; this notifier owns only the current snapshot
-/// and the random source. It is automatically disposed when unused.
+/// Holds the current Classic game snapshot for the open play screen.
 final class PlaySessionProvider
     extends $NotifierProvider<PlaySession, GameState> {
-  /// Manages the Classic game session displayed by [PlayScreen].
-  ///
-  /// The engine owns the rules; this notifier owns only the current snapshot
-  /// and the random source. It is automatically disposed when unused.
+  /// Holds the current Classic game snapshot for the open play screen.
   PlaySessionProvider._()
     : super(
         from: null,
@@ -55,10 +46,7 @@ final class PlaySessionProvider
 
 String _$playSessionHash() => r'1ece875b9afdc66965c7f8b96318d84faaebf9c8';
 
-/// Manages the Classic game session displayed by [PlayScreen].
-///
-/// The engine owns the rules; this notifier owns only the current snapshot
-/// and the random source. It is automatically disposed when unused.
+/// Holds the current Classic game snapshot for the open play screen.
 
 abstract class _$PlaySession extends $Notifier<GameState> {
   GameState build();
@@ -71,6 +59,56 @@ abstract class _$PlaySession extends $Notifier<GameState> {
             as $ClassProviderElement<
               AnyNotifier<GameState, GameState>,
               GameState,
+              Object?,
+              Object?
+            >;
+    return element.handleCreate(ref, build);
+  }
+}
+
+/// Manages the one-time How to Play hint, independently of game rules.
+
+@ProviderFor(PlayTutorial)
+final playTutorialProvider = PlayTutorialProvider._();
+
+/// Manages the one-time How to Play hint, independently of game rules.
+final class PlayTutorialProvider
+    extends $AsyncNotifierProvider<PlayTutorial, bool> {
+  /// Manages the one-time How to Play hint, independently of game rules.
+  PlayTutorialProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'playTutorialProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$playTutorialHash();
+
+  @$internal
+  @override
+  PlayTutorial create() => PlayTutorial();
+}
+
+String _$playTutorialHash() => r'93bc289f946bcf2d9167b3e6d1acdb6c6b424bbb';
+
+/// Manages the one-time How to Play hint, independently of game rules.
+
+abstract class _$PlayTutorial extends $AsyncNotifier<bool> {
+  FutureOr<bool> build();
+  @$mustCallSuper
+  @override
+  WhenComplete runBuild() {
+    final ref = this.ref as $Ref<AsyncValue<bool>, bool>;
+    final element =
+        ref.element
+            as $ClassProviderElement<
+              AnyNotifier<AsyncValue<bool>, bool>,
+              AsyncValue<bool>,
               Object?,
               Object?
             >;

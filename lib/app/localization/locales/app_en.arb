@@ -1,3 +1,4 @@
+
 {
   "@@locale": "en",
   "appTitle": "REALMS",
@@ -11,5 +12,10 @@
   "moveLeft": "Move left",
   "moveRight": "Move right",
   "moveUp": "Move up",
-  "moveDown": "Move down"
+  "moveDown": "Move down",
+  "howToPlayTitle": "How to Play",
+  "howToPlayDescription": "Swipe on the board to move the buildings. Combine identical buildings to evolve them.",
+  "howToPlayKeyboard": "Keyboard: arrow keys or WASD.",
+  "gotIt": "Got it!",
+  "youWon": "You won!"
 }

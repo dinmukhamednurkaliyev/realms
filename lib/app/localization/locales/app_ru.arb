@@ -1,3 +1,4 @@
+
 {
   "@@locale": "ru",
   "appTitle": "REALMS",
@@ -11,5 +12,10 @@
   "moveLeft": "Влево",
   "moveRight": "Вправо",
   "moveUp": "Вверх",
-  "moveDown": "Вниз"
+  "moveDown": "Вниз",
+  "howToPlayTitle": "Как играть",
+  "howToPlayDescription": "Проводите пальцем по полю, чтобы перемещать здания. Объединяйте одинаковые здания, чтобы развивать их.",
+  "howToPlayKeyboard": "Клавиатура: стрелки или WASD.",
+  "gotIt": "Понятно",
+  "youWon": "Победа!"
 }

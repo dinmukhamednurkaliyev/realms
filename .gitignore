@@ -1,50 +1,88 @@
-# Miscellaneous
-*.class
-*.log
-*.pyc
-*.swp
-.DS_Store
-.atom/
-.build/
-.buildlog/
-.history
-.svn/
-.swiftpm/
-migrate_working_dir/
-
-# IntelliJ related
-*.iml
-*.ipr
-*.iws
-.idea/
-
-# The .vscode folder contains launch configuration and tasks you configure in
-# VS Code which you may wish to be included in version control, so this line
-# is commented out by default.
-#.vscode/
-
-# Flutter/Dart/Pub related
-**/doc/api/
-**/ios/Flutter/.last_build_id
+# Flutter and Dart
 .dart_tool/
+.flutter-plugins
 .flutter-plugins-dependencies
+.packages
 .pub-cache/
 .pub/
 /build/
 /coverage/
-# Generated from lib/app/localization/locales by flutter gen-l10n.
-/lib/app/localization/*.dart
-
-# Symbolication related
+**/doc/api/
+.widget_preview/
 app.*.symbols
-
-# Obfuscation related
 app.*.map.json
 
-# Android Studio will place build artifacts here
-/android/app/debug
-/android/app/profile
-/android/app/release
+# Localization is regenerated from tracked ARB files; other generated Dart stays tracked.
+/lib/app/localization/localization.dart
+/lib/app/localization/localization_*.dart
 
-# Widget Preview related
-.widget_preview/
+# Platform build artifacts; Android SDK paths and signing keys use android/.gitignore.
+/android/.kotlin/
+/android/app/debug/
+/android/app/profile/
+/android/app/release/
+**/ios/Flutter/.last_build_id
+.swiftpm/
+.build/
+.buildlog/
+migrate_working_dir/
+*.class
+
+# IDE state; keep shareable .vscode configuration.
+.idea/
+*.iml
+*.ipr
+*.iws
+.atom/
+.history
+
+# Local environment and secrets; keep sanitized templates.
+.env
+.env.*
+!.env.example
+!.env.sample
+!.env.template
+!.env.*.example
+!.env.*.sample
+!.env.*.template
+/mise.local.toml
+/mise.*.local.toml
+/.mise.local.toml
+/.mise.*.local.toml
+
+# Logs, temporary files, and OS metadata
+*.log
+*.tmp
+*.temp
+*.sw[op]
+*~
+*.pyc
+__pycache__/
+.DS_Store
+._*
+Thumbs.db
+Desktop.ini
+.svn/
+
+# AI local state; keep shared configuration, instructions, rules, prompts, and skills.
+/.codex/auth.json
+/.codex/history.jsonl
+/.codex/session_index.jsonl*
+/.codex/sessions/
+/.codex/archived_sessions/
+/.codex/cache/
+/.codex/tmp/
+/.codex/.tmp/
+/.codex/shell_snapshots/
+/.codex/*.sqlite*
+/.codex/installation_id
+/.codex/models_cache.json
+/.codex/version.json
+/.claude/settings.local.json
+CLAUDE.local.md
+/.copilot/ide/
+/.copilot/session-state/
+/.aider.chat.history.md
+/.aider.input.history
+/.aider.llm.history
+/.aider.tags.cache*/
