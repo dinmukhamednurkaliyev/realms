@@ -10,7 +10,7 @@ analyzer:
 
 linter:
   rules:
-    # Internal relative imports and prefixed feature imports are checked by
+    # Direct internal imports and module entry points are checked by
     # tool/check_architecture.dart instead of either blanket import rule.
     always_use_package_imports: false
     prefer_relative_imports: false

@@ -1,6 +1,6 @@
 import 'dart:math';
 
-import 'package:realms/game/game.dart' as game;
+import 'package:realms/game/engine/engine.dart';
 import 'package:test/test.dart';
 
 void main() {
@@ -8,13 +8,13 @@ void main() {
     test(
       'allows continued moves after victory without changing old snapshots',
       () {
-        final configuration = game.Configuration(
+        final configuration = GameConfiguration(
           rowCount: 1,
           columnCount: 3,
-          objective: game.ReachTileLevelObjective(targetLevel: 2),
+          objective: ReachTileLevelObjective(targetLevel: 2),
         );
-        final state = game.State(
-          board: game.Board(
+        final state = GameState(
+          board: GameBoard(
             rows: [
               [2, 2, null],
             ],
@@ -22,16 +22,16 @@ void main() {
           configuration: configuration,
         );
         final moveResult = state.moveWithResult(
-          direction: game.MoveDirection.left,
+          direction: MoveDirection.left,
           random: Random(42),
         );
 
-        expect(state.status, game.Status.won);
+        expect(state.status, GameStatus.won);
         expect(moveResult.changed, isTrue);
         expect(moveResult.scoreGained, 90);
         expect(moveResult.spawnedTile, isNotNull);
         expect(moveResult.state.configuration, same(configuration));
-        expect(moveResult.state.status, game.Status.won);
+        expect(moveResult.state.status, GameStatus.won);
         expect(state.board.rows, [
           [2, 2, null],
         ]);
@@ -40,8 +40,8 @@ void main() {
     );
 
     test('keeps an Endless game in progress while moves remain', () {
-      final state = game.State(
-        board: game.Board(
+      final state = GameState(
+        board: GameBoard(
           rows: [
             [1, null],
             [2, 3],
@@ -49,14 +49,14 @@ void main() {
         ),
       );
 
-      expect(state.status, game.Status.inProgress);
+      expect(state.status, GameStatus.inProgress);
       expect(state.isGameOver, isFalse);
       expect(state.hasAvailableMoves, isTrue);
     });
 
     test('ends an Endless game in defeat when no moves remain', () {
-      final state = game.State(
-        board: game.Board(
+      final state = GameState(
+        board: GameBoard(
           rows: [
             [1, 2],
             [2, 1],
@@ -64,18 +64,18 @@ void main() {
         ),
       );
 
-      expect(state.status, game.Status.lost);
+      expect(state.status, GameStatus.lost);
       expect(state.isGameOver, isTrue);
     });
 
     test('reports objective completion as victory even if moves remain', () {
-      final configuration = game.Configuration(
+      final configuration = GameConfiguration(
         rowCount: 1,
         columnCount: 3,
-        objective: game.ReachTileLevelObjective(targetLevel: 2),
+        objective: ReachTileLevelObjective(targetLevel: 2),
       );
-      final state = game.State(
-        board: game.Board(
+      final state = GameState(
+        board: GameBoard(
           rows: [
             [2, null, 1],
           ],
@@ -84,20 +84,20 @@ void main() {
       );
 
       expect(state.hasAvailableMoves, isTrue);
-      expect(state.status, game.Status.won);
+      expect(state.status, GameStatus.won);
       expect(state.isGameOver, isTrue);
     });
 
     test('gives victory priority when the completed board is also blocked', () {
-      final configuration = game.Configuration(
+      final configuration = GameConfiguration(
         rowCount: 1,
         columnCount: 2,
         maxTileLevel: 2,
         spawnWeights: {1: 1},
-        objective: game.ReachTileLevelObjective(targetLevel: 2),
+        objective: ReachTileLevelObjective(targetLevel: 2),
       );
-      final state = game.State(
-        board: game.Board(
+      final state = GameState(
+        board: GameBoard(
           rows: [
             [2, 2],
           ],
@@ -106,35 +106,35 @@ void main() {
       );
 
       expect(state.hasAvailableMoves, isFalse);
-      expect(state.status, game.Status.won);
+      expect(state.status, GameStatus.won);
       expect(state.isGameOver, isTrue);
     });
 
     test('reports defeat when blocked below the target level', () {
-      final state = game.State(
-        board: game.Board(
+      final state = GameState(
+        board: GameBoard(
           rows: [
             [1, 2],
           ],
         ),
-        configuration: game.Configuration(
+        configuration: GameConfiguration(
           rowCount: 1,
           columnCount: 2,
-          objective: game.ReachTileLevelObjective(targetLevel: 3),
+          objective: ReachTileLevelObjective(targetLevel: 3),
         ),
       );
 
-      expect(state.status, game.Status.lost);
+      expect(state.status, GameStatus.lost);
     });
 
     test('changes from in progress to victory after a merge', () {
-      final configuration = game.Configuration(
+      final configuration = GameConfiguration(
         rowCount: 1,
         columnCount: 3,
-        objective: game.ReachTileLevelObjective(targetLevel: 2),
+        objective: ReachTileLevelObjective(targetLevel: 2),
       );
-      final state = game.State(
-        board: game.Board(
+      final state = GameState(
+        board: GameBoard(
           rows: [
             [1, 1, null],
           ],
@@ -142,23 +142,23 @@ void main() {
         configuration: configuration,
       );
       final moveResult = state.moveWithResult(
-        direction: game.MoveDirection.left,
+        direction: MoveDirection.left,
         random: Random(42),
       );
 
-      expect(state.status, game.Status.inProgress);
-      expect(moveResult.state.status, game.Status.won);
+      expect(state.status, GameStatus.inProgress);
+      expect(moveResult.state.status, GameStatus.won);
       expect(moveResult.scoreGained, 40);
     });
 
     test('evaluates victory correctly when restoring a saved state', () {
-      final configuration = game.Configuration(
+      final configuration = GameConfiguration(
         rowCount: 1,
         columnCount: 2,
-        objective: game.ReachTileLevelObjective(targetLevel: 4),
+        objective: ReachTileLevelObjective(targetLevel: 4),
       );
-      final state = game.State(
-        board: game.Board(
+      final state = GameState(
+        board: GameBoard(
           rows: [
             [4, 4],
           ],
@@ -167,16 +167,16 @@ void main() {
         configuration: configuration,
       );
 
-      expect(state.status, game.Status.won);
+      expect(state.status, GameStatus.won);
       expect(state.score, 800);
     });
 
     test('reports an empty restored board as lost', () {
-      final state = game.State(
-        board: game.Board.empty(rowCount: 1, columnCount: 2),
+      final state = GameState(
+        board: GameBoard.empty(rowCount: 1, columnCount: 2),
       );
 
-      expect(state.status, game.Status.lost);
+      expect(state.status, GameStatus.lost);
       expect(state.isGameOver, isTrue);
     });
   });

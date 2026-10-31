@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:realms/app/localization/localization.dart' as localization;
+import 'package:realms/app/localization/localization.dart';
 
 /// The home screen, with navigation handled by the application.
-final class Screen extends StatelessWidget {
+final class HomeScreen extends StatelessWidget {
   /// Creates the home screen.
   const new({required this.onStartGame, super.key});
 
@@ -11,7 +11,7 @@ final class Screen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final strings = localization.Strings.of(context);
+    final strings = Strings.of(context);
     final typography = Theme.of(context).textTheme;
 
     return Scaffold(
@@ -19,32 +19,34 @@ final class Screen extends StatelessWidget {
         child: Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 420),
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.castle_outlined, size: 88),
-                  const SizedBox(height: 24),
-                  Text(strings.appTitle, style: typography.displayMedium),
-                  const SizedBox(height: 8),
-                  Text(
-                    strings.tagline,
-                    style: typography.titleMedium,
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 48),
-                  SizedBox(
-                    width: double.infinity,
-                    child: FilledButton(
-                      onPressed: onStartGame,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        child: Text(strings.startGame),
+            child: SingleChildScrollView(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.castle_outlined, size: 88),
+                    const SizedBox(height: 24),
+                    Text(strings.appTitle, style: typography.displayMedium),
+                    const SizedBox(height: 8),
+                    Text(
+                      strings.tagline,
+                      style: typography.titleMedium,
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 48),
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton(
+                        onPressed: onStartGame,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          child: Text(strings.startGame),
+                        ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),

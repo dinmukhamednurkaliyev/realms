@@ -1,23 +1,24 @@
 import 'dart:math';
 
-import 'package:realms/game/game.dart' as game;
+import 'package:realms/game/engine/engine.dart';
+import 'package:realms/game/modes/modes.dart';
 import 'package:test/test.dart';
 
 void main() {
   group('Campaign', () {
     test('defines distinct Campaign stages using shared configuration', () {
-      final firstStage = game.CampaignLevel(
+      final firstStage = CampaignLevel(
         number: 1,
-        configuration: game.Configuration(
+        configuration: GameConfiguration(
           rowCount: 3,
           columnCount: 3,
-          objective: game.ReachTileLevelObjective(targetLevel: 3),
+          objective: ReachTileLevelObjective(targetLevel: 3),
         ),
       );
-      final secondStage = game.CampaignLevel(
+      final secondStage = CampaignLevel(
         number: 2,
-        configuration: game.Configuration(
-          objective: game.ReachTileLevelObjective(targetLevel: 5),
+        configuration: GameConfiguration(
+          objective: ReachTileLevelObjective(targetLevel: 5),
         ),
       );
 
@@ -26,7 +27,7 @@ void main() {
       expect(secondStage.number, 2);
       expect(secondStage.configuration.rowCount, 4);
 
-      final state = game.State.start(
+      final state = GameState.start(
         configuration: firstStage.configuration,
         random: Random(42),
       );
@@ -36,10 +37,10 @@ void main() {
 
     test('rejects invalid campaign level numbers', () {
       expect(
-        () => game.CampaignLevel(
+        () => CampaignLevel(
           number: 0,
-          configuration: game.Configuration(
-            objective: game.ReachTileLevelObjective(targetLevel: 3),
+          configuration: GameConfiguration(
+            objective: ReachTileLevelObjective(targetLevel: 3),
           ),
         ),
         throwsArgumentError,
@@ -48,8 +49,7 @@ void main() {
 
     test('requires a victory objective', () {
       expect(
-        () =>
-            game.CampaignLevel(number: 1, configuration: game.Configuration()),
+        () => CampaignLevel(number: 1, configuration: GameConfiguration()),
         throwsArgumentError,
       );
     });

@@ -51,7 +51,7 @@ run = "flutter gen-l10n"
 # Architecture
 
 [tasks."architecture:check"]
-description = "Check feature imports, public facades, and dependency direction"
+description = "Check module APIs, import conventions, and dependency direction"
 run = "dart run tool/check_architecture.dart"
 
 

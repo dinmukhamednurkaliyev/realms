@@ -1,38 +1,38 @@
 import 'dart:math';
 
-import 'package:realms/game/game.dart' as game;
+import 'package:realms/game/engine/engine.dart';
 import 'package:test/test.dart';
 
 void main() {
   group('Tile level objectives', () {
     test('rejects a non-positive target level', () {
       expect(
-        () => game.ReachTileLevelObjective(targetLevel: 0),
+        () => ReachTileLevelObjective(targetLevel: 0),
         throwsArgumentError,
       );
     });
 
     test('rejects a target above the configured maximum level', () {
       expect(
-        () => game.Configuration(
+        () => GameConfiguration(
           maxTileLevel: 3,
-          objective: game.ReachTileLevelObjective(targetLevel: 4),
+          objective: ReachTileLevelObjective(targetLevel: 4),
         ),
         throwsArgumentError,
       );
     });
 
     test('is incomplete when no tile reaches the target', () {
-      final state = game.State(
-        board: game.Board(
+      final state = GameState(
+        board: GameBoard(
           rows: [
             [1, 2, null],
           ],
         ),
-        configuration: game.Configuration(
+        configuration: GameConfiguration(
           rowCount: 1,
           columnCount: 3,
-          objective: game.ReachTileLevelObjective(targetLevel: 3),
+          objective: ReachTileLevelObjective(targetLevel: 3),
         ),
       );
 
@@ -40,13 +40,13 @@ void main() {
     });
 
     test('becomes complete after a merge reaches the target', () {
-      final configuration = game.Configuration(
+      final configuration = GameConfiguration(
         rowCount: 1,
         columnCount: 3,
-        objective: game.ReachTileLevelObjective(targetLevel: 2),
+        objective: ReachTileLevelObjective(targetLevel: 2),
       );
-      final state = game.State(
-        board: game.Board(
+      final state = GameState(
+        board: GameBoard(
           rows: [
             [1, 1, null],
           ],
@@ -55,7 +55,7 @@ void main() {
       );
 
       final nextState = state.move(
-        direction: game.MoveDirection.left,
+        direction: MoveDirection.left,
         random: Random(42),
       );
 
@@ -65,16 +65,16 @@ void main() {
     });
 
     test('recognizes an already completed restored board', () {
-      final state = game.State(
-        board: game.Board(
+      final state = GameState(
+        board: GameBoard(
           rows: [
             [4, null],
           ],
         ),
-        configuration: game.Configuration(
+        configuration: GameConfiguration(
           rowCount: 1,
           columnCount: 2,
-          objective: game.ReachTileLevelObjective(targetLevel: 3),
+          objective: ReachTileLevelObjective(targetLevel: 3),
         ),
         score: 300,
       );
@@ -84,16 +84,16 @@ void main() {
     });
 
     test('can be completed by an initial spawn', () {
-      final configuration = game.Configuration(
+      final configuration = GameConfiguration(
         rowCount: 1,
         columnCount: 2,
         maxTileLevel: 2,
         initialTileCount: 1,
         spawnWeights: {2: 1},
-        objective: game.ReachTileLevelObjective(targetLevel: 2),
+        objective: ReachTileLevelObjective(targetLevel: 2),
       );
 
-      final state = game.State.start(
+      final state = GameState.start(
         configuration: configuration,
         random: Random(42),
       );
@@ -102,10 +102,10 @@ void main() {
     });
   });
 
-  group('game.Objective completion', () {
+  group('GameObjective completion', () {
     test('Endless games have no completed objective', () {
-      final state = game.State(
-        board: game.Board(
+      final state = GameState(
+        board: GameBoard(
           rows: [
             [2, null],
           ],
@@ -117,13 +117,13 @@ void main() {
     });
 
     test('supports an objective based on accumulated score', () {
-      final configuration = game.Configuration(
+      final configuration = GameConfiguration(
         rowCount: 1,
         columnCount: 2,
         objective: const _ScoreThresholdObjective(minimumScore: 100),
       );
-      final state = game.State(
-        board: game.Board(
+      final state = GameState(
+        board: GameBoard(
           rows: [
             [1, null],
           ],
@@ -131,7 +131,7 @@ void main() {
         configuration: configuration,
         score: 99,
       );
-      final completedState = game.State(
+      final completedState = GameState(
         board: state.board,
         configuration: configuration,
         score: 100,
@@ -142,15 +142,15 @@ void main() {
     });
 
     test('recognizes a completed objective when the board is blocked', () {
-      final configuration = game.Configuration(
+      final configuration = GameConfiguration(
         rowCount: 1,
         columnCount: 2,
         maxTileLevel: 2,
         spawnWeights: {1: 1},
-        objective: game.ReachTileLevelObjective(targetLevel: 2),
+        objective: ReachTileLevelObjective(targetLevel: 2),
       );
-      final state = game.State(
-        board: game.Board(
+      final state = GameState(
+        board: GameBoard(
           rows: [
             [2, 2],
           ],
@@ -165,13 +165,13 @@ void main() {
   });
 }
 
-final class _ScoreThresholdObjective implements game.Objective {
+final class _ScoreThresholdObjective implements GameObjective {
   const new({required this.minimumScore});
 
   final int minimumScore;
 
   @override
-  bool isCompleted({required game.Board board, required int score}) {
+  bool isCompleted({required GameBoard board, required int score}) {
     return score >= minimumScore;
   }
 }

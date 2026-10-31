@@ -1,31 +1,28 @@
 import 'package:flutter/material.dart';
-import 'package:realms/game/game.dart' as game;
-import 'package:realms/home/home.dart' as home;
-
-import 'localization/localization.dart' as localization;
-import 'theme.dart';
+import 'package:realms/app/appearance/appearance.dart';
+import 'package:realms/app/localization/localization.dart';
+import 'package:realms/game/game.dart';
+import 'package:realms/home/home.dart';
 
 /// Configures the shared application appearance, localization, and home page.
-final class Application extends StatelessWidget {
+final class RealmsApp extends StatelessWidget {
   /// Creates the application root.
   const new({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      onGenerateTitle: (context) => localization.Strings.of(context).appTitle,
+      onGenerateTitle: (context) => Strings.of(context).appTitle,
       debugShowCheckedModeBanner: false,
       theme: lightTheme,
       darkTheme: darkTheme,
-      localizationsDelegates: localization.Strings.localizationsDelegates,
-      supportedLocales: localization.Strings.supportedLocales,
+      localizationsDelegates: Strings.localizationsDelegates,
+      supportedLocales: Strings.supportedLocales,
       home: Builder(
-        builder: (context) => home.Screen(
+        builder: (context) => HomeScreen(
           onStartGame: () {
             Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (context) => const game.PlayScreen(),
-              ),
+              MaterialPageRoute<void>(builder: (context) => const PlayScreen()),
             );
           },
         ),

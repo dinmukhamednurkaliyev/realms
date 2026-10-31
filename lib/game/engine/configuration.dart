@@ -1,17 +1,23 @@
 import 'objectives.dart';
 
+/// Largest integer with exact consecutive values on native and web targets.
+/// Internal arithmetic bound; not part of the Realms public API.
+const maximumExactInteger = 9007199254740991;
+
 /// Immutable rules used when starting, restoring, or progressing a game.
 ///
-/// Board dimensions, merge limits, scoring, and tile spawning are fixed for
+/// GameBoard dimensions, merge limits, scoring, and tile spawning are fixed for
 /// the lifetime of a game state. A configuration can be shared across states.
 /// An optional [objective] defines success without changing movement rules.
 /// These rules are shared across game modes, including Campaign and Endless.
 /// An optional [moveLimit] limits how many successful moves a game can make.
-final class Configuration {
+final class GameConfiguration {
   /// Creates validated game rules, with 4x4 classic-style defaults.
   ///
   /// [spawnWeights] maps each spawnable tile level to a positive
   /// relative weight. Every spawn level must not exceed [maxTileLevel].
+  /// Their sum must not exceed 2^53 - 1, preserving exact weighted ranges
+  /// on both native and web targets.
   /// The map is copied to prevent changes after construction.
   /// [objective] is optional, allowing Endless games without a victory target.
   /// [moveLimit] is optional; when supplied, it must be positive.
@@ -97,6 +103,19 @@ final class Configuration {
         'and weights must be positive.',
       );
     }
+
+    var totalWeight = 0;
+    for (final weight in this.spawnWeights.values) {
+      // Check before adding: a native integer sum can itself overflow.
+      if (weight > maximumExactInteger - totalWeight) {
+        throw ArgumentError.value(
+          spawnWeights,
+          'spawnWeights',
+          'The total weight must not exceed $maximumExactInteger.',
+        );
+      }
+      totalWeight += weight;
+    }
   }
 
   /// Number of rows in the board.
@@ -125,7 +144,7 @@ final class Configuration {
   /// Optional victory condition; `null` means there is no objective.
   ///
   /// This is independent of whether the board has any available moves.
-  final Objective? objective;
+  final GameObjective? objective;
 
   /// Immutable relative spawn weights, keyed by tile level.
   ///

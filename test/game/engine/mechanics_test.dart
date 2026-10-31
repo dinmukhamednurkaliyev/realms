@@ -1,7 +1,8 @@
 import 'dart:math';
 
-import 'package:realms/game/engine/mechanics.dart' as mechanics;
-import 'package:realms/game/game.dart' as game;
+import 'package:realms/game/engine/engine.dart';
+import 'package:realms/game/engine/mechanics.dart'
+    show hasAvailableBoardMoves, moveBoard, spawnTile;
 import 'package:test/test.dart';
 
 void main() {
@@ -14,7 +15,7 @@ void main() {
         (2, 3),
         (3, 2),
       ]) {
-        test('hasAvailableMoves agrees with moves on every '
+        test('hasAvailableBoardMoves agrees with moves on every '
             '${rowCount}x$columnCount board up to level $maxTileLevel', () {
           final cellValues = <int?>[
             null,
@@ -28,7 +29,7 @@ void main() {
           for (var boardIndex = 0; boardIndex < boardCount; boardIndex++) {
             // Each base-N digit selects one cell value, including empty.
             var encodedCells = boardIndex;
-            final board = game.Board(
+            final board = GameBoard(
               rows: List.generate(
                 rowCount,
                 (_) => List.generate(columnCount, (_) {
@@ -41,8 +42,8 @@ void main() {
             );
             var anyMoveChangesBoard = false;
 
-            for (final direction in game.MoveDirection.values) {
-              final movementResult = mechanics.moveBoard(
+            for (final direction in MoveDirection.values) {
+              final movementResult = moveBoard(
                 board: board,
                 direction: direction,
                 maxTileLevel: maxTileLevel,
@@ -51,10 +52,7 @@ void main() {
             }
 
             expect(
-              mechanics.hasAvailableMoves(
-                board: board,
-                maxTileLevel: maxTileLevel,
-              ),
+              hasAvailableBoardMoves(board: board, maxTileLevel: maxTileLevel),
               anyMoveChangesBoard,
               reason: '${board.rows}',
             );
@@ -64,15 +62,15 @@ void main() {
     }
 
     test('returns an immutable movement result before spawning', () {
-      final board = game.Board(
+      final board = GameBoard(
         rows: [
           [1, null, 1, 2],
         ],
       );
 
-      final movementResult = mechanics.moveBoard(
+      final movementResult = moveBoard(
         board: board,
-        direction: game.MoveDirection.left,
+        direction: MoveDirection.left,
         maxTileLevel: 3,
       );
 
@@ -89,7 +87,7 @@ void main() {
     });
 
     test('rejects spawning on a full board before consuming randomness', () {
-      final board = game.Board(
+      final board = GameBoard(
         rows: [
           [1, 2],
         ],
@@ -98,11 +96,7 @@ void main() {
       final expectedRandom = Random(42);
 
       expect(
-        () => mechanics.spawnTile(
-          board: board,
-          random: random,
-          spawnWeights: {1: 1},
-        ),
+        () => spawnTile(board: board, random: random, spawnWeights: {1: 1}),
         throwsStateError,
       );
 

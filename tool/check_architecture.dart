@@ -1,6 +1,38 @@
 import 'dart:io';
 
-// Checks handwritten import/export directives without adding a parser dependency.
+// Logical ownership is independent of directory depth or import syntax.
+const Map<String, ({String entryPoint, Set<String> dependencies})> _modules = {
+  'app': (
+    entryPoint: 'lib/app/app.dart',
+    dependencies: {'app/appearance', 'app/localization', 'game', 'home'},
+  ),
+  'app/appearance': (
+    entryPoint: 'lib/app/appearance/appearance.dart',
+    dependencies: <String>{},
+  ),
+  'app/localization': (
+    entryPoint: 'lib/app/localization/localization.dart',
+    dependencies: <String>{},
+  ),
+  'game': (
+    entryPoint: 'lib/game/game.dart',
+    dependencies: {'game/engine', 'game/modes', 'app/localization'},
+  ),
+  'game/engine': (
+    entryPoint: 'lib/game/engine/engine.dart',
+    dependencies: <String>{},
+  ),
+  'game/modes': (
+    entryPoint: 'lib/game/modes/modes.dart',
+    dependencies: {'game/engine'},
+  ),
+  'home': (
+    entryPoint: 'lib/home/home.dart',
+    dependencies: {'app/localization'},
+  ),
+};
+
+// Checks formatted, handwritten directives without a parser dependency.
 void main() {
   final root = Directory.current.uri;
   final packageName = RegExp(
@@ -9,6 +41,7 @@ void main() {
   ).firstMatch(File('pubspec.yaml').readAsStringSync())!.group(1)!;
   final problems = <String>[];
   final graph = <String, Set<String>>{};
+  final publicOwners = <String, String>{};
   final sources = [
     for (final directory in ['lib', 'test'])
       ...Directory(directory)
@@ -21,31 +54,45 @@ void main() {
     r'''^\s*(import|export)\s+(['"][\s\S]*?);''',
     multiLine: true,
   );
-  final quotedUris = RegExp('''['"]([^'"]+)['"]''');
+  final libraryUris = RegExp(r'''(?:^|if\s*\([^)]*\)\s*)(['"])([^'"]+)\1''');
+
+  if (File('lib/realms.dart').existsSync()) {
+    problems.add('Use module entry points, not a global realms.dart barrel.');
+  }
+  for (final module in _modules.values) {
+    if (!File(module.entryPoint).existsSync()) {
+      problems.add('Missing module entry point: ${module.entryPoint}.');
+    }
+  }
 
   for (final source in sources) {
     final sourcePath = source.uri.path.substring(root.path.length);
     if (_isGenerated(sourcePath)) continue;
 
-    final module = _moduleOf(sourcePath);
+    final moduleName = _moduleOf(sourcePath);
+    final module = _modules[moduleName];
     final isTest = sourcePath.startsWith('test/');
-    final isEngine = sourcePath.startsWith('lib/game/engine/');
-    final isMode = sourcePath.startsWith('lib/game/modes/');
-    final entryPoint = 'lib/$module/$module.dart';
-    final exportedNames = <String>{};
+    final isDomain =
+        !isTest && (moduleName == 'game/engine' || moduleName == 'game/modes');
     final dependencies = graph[sourcePath] = <String>{};
-    final contents = source.readAsStringSync();
+    final exportedNames = <String>{};
 
     void report(String message) => problems.add('$sourcePath: $message');
 
-    for (final directive in directives.allMatches(contents)) {
+    if (!isTest && module == null && sourcePath != 'lib/main.dart') {
+      report('Implementation libraries must belong to a logical module.');
+    }
+
+    for (final directive in directives.allMatches(source.readAsStringSync())) {
       final isExport = directive.group(1) == 'export';
       final body = directive.group(2)!;
-      final prefix = RegExp(r'\bas\s+(\w+)').firstMatch(body)?.group(1);
 
+      if (RegExp(r'\bas\s+\w+').hasMatch(body)) {
+        report('Use descriptive declarations and unprefixed imports.');
+      }
       if (isExport) {
-        if (sourcePath != entryPoint) {
-          report('Only feature entry points may export libraries.');
+        if (sourcePath != module?.entryPoint) {
+          report('Only module entry points may export libraries.');
         }
         final shown = RegExp(r'\bshow\s+([\w,\s]+)$').firstMatch(body);
         if (shown == null) {
@@ -56,23 +103,34 @@ void main() {
             if (!exportedNames.add(name)) {
               report('Duplicate public export: $name.');
             }
+            final owner = publicOwners[name];
+            if (owner != null && owner != sourcePath) {
+              report('$name already belongs to the public API in $owner.');
+            }
+            publicOwners[name] = sourcePath;
           }
         }
       }
 
-      // All URI alternatives in conditional directives must obey the boundary.
-      for (final quotedUri in quotedUris.allMatches(body)) {
-        final uri = quotedUri.group(1)!;
+      // Check each conditional URI, excluding strings in its condition.
+      for (final libraryUri in libraryUris.allMatches(body)) {
+        final uri = libraryUri.group(2)!;
         if (uri.startsWith('dart:')) {
-          if ((isEngine || isMode) && uri == 'dart:ui') {
+          if (isDomain && uri.startsWith('dart:ui')) {
             report('Engine and modes must not depend on Flutter.');
+          }
+          if (isExport) {
+            report('Only declarations owned by this module may be exported.');
           }
           continue;
         }
         if (uri.startsWith('package:') &&
             !uri.startsWith('package:$packageName/')) {
-          if (isEngine || isMode) {
+          if (isDomain) {
             report('Engine and modes may only import Dart and game internals.');
+          }
+          if (isExport) {
+            report('Only declarations owned by this module may be exported.');
           }
           continue;
         }
@@ -83,7 +141,8 @@ void main() {
                 'lib/${uri.substring('package:$packageName/'.length)}',
               )
             : source.uri.resolve(uri);
-        if (!targetUri.path.startsWith(root.resolve('lib/').path)) {
+        if (targetUri.scheme != 'file' ||
+            !targetUri.path.startsWith(root.resolve('lib/').path)) {
           report('Project dependencies must resolve inside lib/: $uri.');
           continue;
         }
@@ -92,61 +151,45 @@ void main() {
           report('Missing dependency: $targetPath.');
         }
         dependencies.add(targetPath);
-        final targetModule = _moduleOf(targetPath);
-        final targetEntry = 'lib/$targetModule/$targetModule.dart';
+        final targetModuleName = _moduleOf(targetPath);
+        final targetModule = _modules[targetModuleName];
+        if (targetModule == null) {
+          report('Dependency has no owning module: $targetPath.');
+          continue;
+        }
+        final isSameModule = moduleName == targetModuleName;
 
-        if (isEngine && !targetPath.startsWith('lib/game/engine/')) {
-          report('Engine dependencies must stay inside engine/.');
+        if (isExport && !isSameModule) {
+          report('Only declarations owned by this module may be exported.');
         }
-        if (isMode &&
-            !targetPath.startsWith('lib/game/engine/') &&
-            !targetPath.startsWith('lib/game/modes/')) {
-          report('Modes may depend only on engine/ and modes/.');
-        }
-        if (!isTest && module == targetModule && targetPath == targetEntry) {
-          report('Internal libraries must not import their own entry point.');
-        }
-        if (isExport && module != targetModule) {
-          report('A feature may only export its own libraries.');
-        }
-
-        if (!isTest && module == targetModule) {
-          if (isPackageImport) {
-            report('Use a relative import within the $module feature: $uri.');
+        if (isTest) {
+          if (!isPackageImport) report('Tests use package imports.');
+          if (!isSameModule && targetPath != targetModule.entryPoint) {
+            report(
+              'Tests access other modules through their public entry points.',
+            );
           }
           continue;
         }
-
-        // Generated strings are a shared leaf, not application composition.
-        final isLocalization =
-            targetPath == 'lib/app/localization/localization.dart' &&
-            (module == 'home' ||
-                sourcePath.startsWith('lib/game/screens/') ||
-                (isTest && module == 'app'));
-        if (isLocalization) {
-          if (!isPackageImport || prefix != 'localization') {
-            report('Import shared strings with the localization prefix.');
+        if (isSameModule) {
+          if (targetPath == module?.entryPoint) {
+            report(
+              'Implementations must not import their own module entry point.',
+            );
+          }
+          if (Uri.parse(uri).hasScheme) {
+            report('Use relative imports within a module.');
           }
           continue;
         }
-        if (isTest && module == targetModule && targetPath != targetEntry) {
-          if (!isPackageImport || prefix == null) {
-            report('Intentional internal tests use prefixed package imports.');
-          }
-          continue;
-        }
-        if (!isPackageImport ||
-            targetPath != targetEntry ||
-            prefix != targetModule) {
+        if (!isPackageImport || targetPath != targetModule.entryPoint) {
           report(
-            'Consume $targetModule through its prefixed public entry point.',
+            'Consume $targetModuleName through '
+            'package:$packageName/${targetModule.entryPoint.substring(4)}.',
           );
         }
-        if (!isTest && module == 'game' && targetModule != 'game') {
-          report('Game must not depend on App or Home composition.');
-        }
-        if (!isTest && module == 'home' && targetModule == 'app') {
-          report('Home must not depend on App composition.');
+        if (module != null && !module.dependencies.contains(targetModuleName)) {
+          report('Forbidden dependency: $targetModuleName.');
         }
       }
     }
@@ -176,10 +219,15 @@ void main() {
 }
 
 String? _moduleOf(String path) {
-  final segments = path.split('/');
-  return segments.length > 2 && {'app', 'game', 'home'}.contains(segments[1])
-      ? segments[1]
-      : null;
+  final relativePath = path.substring(path.indexOf('/') + 1);
+  String? owner;
+  for (final module in _modules.keys) {
+    if (relativePath.startsWith('$module/') &&
+        (owner == null || module.length > owner.length)) {
+      owner = module;
+    }
+  }
+  return owner;
 }
 
 bool _isGenerated(String path) =>

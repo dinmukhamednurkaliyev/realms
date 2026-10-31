@@ -1,10 +1,10 @@
-import 'package:realms/game/game.dart' as game;
+import 'package:realms/game/engine/engine.dart';
 import 'package:test/test.dart';
 
 void main() {
-  group('Configuration', () {
+  group('GameConfiguration', () {
     test('uses default values', () {
-      final configuration = game.Configuration();
+      final configuration = GameConfiguration();
 
       expect(configuration.rowCount, 4);
       expect(configuration.columnCount, 4);
@@ -14,7 +14,7 @@ void main() {
     });
 
     test('supports custom settings', () {
-      final configuration = game.Configuration(
+      final configuration = GameConfiguration(
         rowCount: 5,
         columnCount: 6,
         initialTileCount: 3,
@@ -30,48 +30,42 @@ void main() {
     });
 
     test('rejects non-positive dimensions', () {
-      expect(() => game.Configuration(rowCount: 0), throwsArgumentError);
+      expect(() => GameConfiguration(rowCount: 0), throwsArgumentError);
 
-      expect(() => game.Configuration(columnCount: -1), throwsArgumentError);
+      expect(() => GameConfiguration(columnCount: -1), throwsArgumentError);
     });
 
     test('rejects invalid initial tile counts', () {
-      expect(
-        () => game.Configuration(initialTileCount: 0),
-        throwsArgumentError,
-      );
+      expect(() => GameConfiguration(initialTileCount: 0), throwsArgumentError);
 
       expect(
-        () => game.Configuration(
-          rowCount: 2,
-          columnCount: 2,
-          initialTileCount: 5,
-        ),
+        () =>
+            GameConfiguration(rowCount: 2, columnCount: 2, initialTileCount: 5),
         throwsArgumentError,
       );
     });
 
     test('rejects invalid maximum tile levels', () {
-      expect(() => game.Configuration(maxTileLevel: 0), throwsArgumentError);
+      expect(() => GameConfiguration(maxTileLevel: 0), throwsArgumentError);
     });
 
     test('rejects spawn levels outside the evolution range', () {
       expect(
-        () => game.Configuration(maxTileLevel: 3, spawnWeights: {4: 1}),
+        () => GameConfiguration(maxTileLevel: 3, spawnWeights: {4: 1}),
         throwsArgumentError,
       );
     });
 
     test('rejects empty or non-positive spawn weights', () {
-      expect(() => game.Configuration(spawnWeights: {}), throwsArgumentError);
+      expect(() => GameConfiguration(spawnWeights: {}), throwsArgumentError);
 
       expect(
-        () => game.Configuration(spawnWeights: {1: 0}),
+        () => GameConfiguration(spawnWeights: {1: 0}),
         throwsArgumentError,
       );
 
       expect(
-        () => game.Configuration(spawnWeights: {1: -1}),
+        () => GameConfiguration(spawnWeights: {1: -1}),
         throwsArgumentError,
       );
     });
@@ -79,13 +73,30 @@ void main() {
     test('protects spawn weights from external changes', () {
       final spawnWeights = {1: 9, 2: 1};
 
-      final configuration = game.Configuration(spawnWeights: spawnWeights);
+      final configuration = GameConfiguration(spawnWeights: spawnWeights);
 
       spawnWeights[1] = 100;
 
       expect(configuration.spawnWeights, {1: 9, 2: 1});
 
       expect(() => configuration.spawnWeights[1] = 100, throwsUnsupportedError);
+    });
+
+    test('rejects spawn totals outside the exact integer range', () {
+      const maximumExactInteger = 9007199254740991;
+
+      expect(
+        () => GameConfiguration(spawnWeights: {1: maximumExactInteger + 1}),
+        throwsArgumentError,
+      );
+      expect(
+        () => GameConfiguration(spawnWeights: {1: maximumExactInteger, 2: 1}),
+        throwsArgumentError,
+      );
+      expect(
+        GameConfiguration(spawnWeights: {1: maximumExactInteger}).spawnWeights,
+        {1: maximumExactInteger},
+      );
     });
   });
 }

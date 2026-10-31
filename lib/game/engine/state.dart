@@ -3,12 +3,12 @@ import 'dart:math';
 import 'board.dart';
 import 'configuration.dart';
 import 'events.dart';
-import 'mechanics.dart' as mechanics;
+import 'mechanics.dart';
 
 /// The current evaluation of victory and move availability.
 ///
 /// Completing an objective takes priority over defeat.
-enum Status {
+enum GameStatus {
   /// No objective has been completed and another move is permitted.
   inProgress,
 
@@ -24,7 +24,7 @@ enum Status {
 /// Every successful move produces a new snapshot. The board, rules,
 /// accumulated score, and completed-move count in previous snapshots
 /// remain unchanged.
-final class State {
+final class GameState {
   /// Creates a snapshot from an existing board, optionally restoring a score.
   ///
   /// This does not spawn tiles. When [configuration] is omitted, default
@@ -32,15 +32,16 @@ final class State {
   /// original configuration when restoring a game with customized rules.
   /// Restore [movesMade] alongside [score] when loading a limited game.
   /// Throws [ArgumentError] for mismatched board dimensions, invalid tile
-  /// levels, a negative score, or an invalid completed-move count.
+  /// levels, or invalid scores or completed-move counts. Both counters must
+  /// be between zero and 2^53 - 1 to remain exact on native and web targets.
   new({
     required this.board,
     this.score = 0,
     this.movesMade = 0,
-    Configuration? configuration,
+    GameConfiguration? configuration,
   }) : configuration =
            configuration ??
-           Configuration(
+           GameConfiguration(
              rowCount: board.rowCount,
              columnCount: board.columnCount,
              initialTileCount: min(2, board.rowCount * board.columnCount),
@@ -52,17 +53,23 @@ final class State {
       );
     }
 
-    if (score < 0) {
-      throw ArgumentError.value(score, 'score', 'Must not be negative.');
+    if (score < 0 || score > maximumExactInteger) {
+      throw ArgumentError.value(
+        score,
+        'score',
+        'Must be between zero and $maximumExactInteger.',
+      );
     }
 
     if (movesMade < 0 ||
+        movesMade > maximumExactInteger ||
         (this.configuration.moveLimit != null &&
             movesMade > this.configuration.moveLimit!)) {
       throw ArgumentError.value(
         movesMade,
         'movesMade',
-        'Must be non-negative and must not exceed the move limit.',
+        'Must be between zero and $maximumExactInteger '
+            'and must not exceed the move limit.',
       );
     }
 
@@ -85,10 +92,10 @@ final class State {
   /// The caller owns [random] and should keep using the same random source
   /// for subsequent moves to preserve a reproducible sequence of draws.
   factory start({
-    required Configuration configuration,
+    required GameConfiguration configuration,
     required Random random,
   }) {
-    var initialBoard = Board.empty(
+    var initialBoard = GameBoard.empty(
       rowCount: configuration.rowCount,
       columnCount: configuration.columnCount,
     );
@@ -98,7 +105,7 @@ final class State {
       tileIndex < configuration.initialTileCount;
       tileIndex++
     ) {
-      final spawnResult = mechanics.spawnTile(
+      final spawnResult = spawnTile(
         board: initialBoard,
         random: random,
         spawnWeights: configuration.spawnWeights,
@@ -106,14 +113,14 @@ final class State {
       initialBoard = spawnResult.board;
     }
 
-    return State(board: initialBoard, configuration: configuration);
+    return GameState(board: initialBoard, configuration: configuration);
   }
 
   /// The current immutable board.
-  final Board board;
+  final GameBoard board;
 
   /// The validated rules preserved across every move.
-  final Configuration configuration;
+  final GameConfiguration configuration;
 
   /// Total points accumulated since the game began.
   final int score;
@@ -140,7 +147,7 @@ final class State {
       return false;
     }
 
-    return mechanics.hasAvailableMoves(
+    return hasAvailableBoardMoves(
       board: board,
       maxTileLevel: configuration.maxTileLevel,
     );
@@ -160,16 +167,16 @@ final class State {
   /// available moves or exhausting the move limit. A game without an
   /// objective can never be won.
   /// This getter is pure and does not consume randomness.
-  Status get status {
+  GameStatus get status {
     if (hasCompletedObjective) {
-      return Status.won;
+      return GameStatus.won;
     }
 
     if (!hasAvailableMoves) {
-      return Status.lost;
+      return GameStatus.lost;
     }
 
-    return Status.inProgress;
+    return GameStatus.inProgress;
   }
 
   /// Whether the game has ended in either victory or defeat.
@@ -177,32 +184,31 @@ final class State {
   /// A victory can occur while moves remain available. The movement methods
   /// allow continued play after victory while moves remain permitted, but
   /// do not allow exceeding a configured move limit.
-  bool get isGameOver => status != Status.inProgress;
+  bool get isGameOver => status != GameStatus.inProgress;
 
   /// Performs a move and returns its next state without event details.
   ///
   /// Has the same gameplay rules and random draws as [moveWithResult].
-  State move({
-    required mechanics.MoveDirection direction,
-    required Random random,
-  }) {
+  GameState move({required MoveDirection direction, required Random random}) {
     return moveWithResult(direction: direction, random: random).state;
   }
 
   /// Applies one movement direction and returns its state and event details.
   ///
   /// Steps: check the move limit, slide and merge tiles, return immediately
-  /// for an unchanged board, spawn one tile, award points, and construct the
-  /// next immutable state. Exhausted moves do not consume randomness.
-  MoveResult moveWithResult({
-    required mechanics.MoveDirection direction,
+  /// for an unchanged board, calculate points, spawn one tile, and construct
+  /// the next immutable state. Exhausted moves do not consume randomness.
+  /// Throws [StateError] before spawning if the score or move count would
+  /// exceed 2^53 - 1; the original state and random source remain unchanged.
+  GameMoveResult moveWithResult({
+    required MoveDirection direction,
     required Random random,
   }) {
     if (movesRemaining == 0) {
       return _unchangedMoveResult();
     }
 
-    final movementResult = mechanics.moveBoard(
+    final movementResult = moveBoard(
       board: board,
       direction: direction,
       maxTileLevel: configuration.maxTileLevel,
@@ -212,27 +218,37 @@ final class State {
       return _unchangedMoveResult();
     }
 
-    final spawnResult = mechanics.spawnTile(
+    if (movesMade == maximumExactInteger) {
+      throw StateError('The move count exceeds the exact integer range.');
+    }
+
+    var scoreGained = 0;
+
+    for (final merge in movementResult.merges) {
+      final remainingScore = maximumExactInteger - score - scoreGained;
+      // Division checks the bound without overflowing the score multiplication.
+      if (configuration.mergeScoreMultiplier >
+          remainingScore ~/ merge.level ~/ merge.level) {
+        throw StateError('The move score exceeds the exact integer range.');
+      }
+      scoreGained +=
+          configuration.mergeScoreMultiplier * merge.level * merge.level;
+    }
+
+    final spawnResult = spawnTile(
       board: movementResult.board,
       random: random,
       spawnWeights: configuration.spawnWeights,
     );
 
-    var scoreGained = 0;
-
-    for (final merge in movementResult.merges) {
-      scoreGained +=
-          configuration.mergeScoreMultiplier * merge.level * merge.level;
-    }
-
-    final nextState = State(
+    final nextState = GameState(
       board: spawnResult.board,
       configuration: configuration,
       score: score + scoreGained,
       movesMade: movesMade + 1,
     );
 
-    return MoveResult._(
+    return GameMoveResult._(
       state: nextState,
       scoreGained: scoreGained,
       movements: movementResult.movements,
@@ -241,7 +257,7 @@ final class State {
     );
   }
 
-  MoveResult _unchangedMoveResult() => MoveResult._(
+  GameMoveResult _unchangedMoveResult() => GameMoveResult._(
     state: this,
     scoreGained: 0,
     movements: const [],
@@ -254,7 +270,7 @@ final class State {
 /// [state] is the resulting snapshot. An unchanged move retains the original
 /// state, earns no points, emits no events, and consumes no random values.
 /// A successful move currently spawns exactly one new tile.
-final class MoveResult {
+final class GameMoveResult {
   new _({
     required this.state,
     required this.scoreGained,
@@ -268,7 +284,7 @@ final class MoveResult {
        );
 
   /// The next immutable state, or the original state for an unchanged move.
-  final State state;
+  final GameState state;
 
   /// Whether the attempted move changed the board.
   ///
