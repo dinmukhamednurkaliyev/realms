@@ -33,7 +33,7 @@ final class HomeScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      localization.tagline,
+                      localization.home.tagline,
                       style: typography.titleMedium,
                       textAlign: TextAlign.center,
                     ),
@@ -44,7 +44,7 @@ final class HomeScreen extends StatelessWidget {
                         onPressed: onStartGame,
                         child: Padding(
                           padding: const EdgeInsets.symmetric(vertical: 14),
-                          child: Text(localization.startGame),
+                          child: Text(localization.home.startGame),
                         ),
                       ),
                     ),

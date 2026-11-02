@@ -11,12 +11,12 @@ void main() {
     final english = await AppLocalization.delegate.load(const Locale('en'));
     final russian = await AppLocalization.delegate.load(const Locale('ru'));
 
-    expect(english.startGame, 'Start game');
-    expect(russian.startGame, 'Начать игру');
-    expect(english.score(points: 1250), '1250');
-    expect(russian.score(points: 1250), '1250');
-    expect(english.howToPlayKeyboard, 'Keyboard: arrow keys or WASD.');
-    expect(russian.howToPlayKeyboard, 'Клавиатура: стрелки или WASD.');
+    expect(english.home.startGame, 'Start game');
+    expect(russian.home.startGame, 'Начать игру');
+    expect(english.game.score(points: 1250), '1250');
+    expect(russian.game.score(points: 1250), '1250');
+    expect(english.game.howToPlayKeyboard, 'Keyboard: arrow keys or WASD.');
+    expect(russian.game.howToPlayKeyboard, 'Клавиатура: стрелки или WASD.');
     expect(AppLocalization.supportedLocales, [
       const Locale('en'),
       const Locale('ru'),
@@ -169,5 +169,5 @@ class _LocalizedText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) =>
-      Text(AppLocalization.of(context).startGame);
+      Text(AppLocalization.of(context).home.startGame);
 }

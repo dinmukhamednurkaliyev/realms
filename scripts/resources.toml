@@ -1,0 +1,13 @@
+[assets]
+directory = "assets"
+entry_point = "lib/app/assets/assets.dart"
+output = "lib/app/assets/catalog.dart"
+exclude = ["localization/**"]
+
+[localization]
+directory = "assets/localization"
+layout = "module/locale"
+locales = ["en", "ru"]
+fallback = "en"
+entry_point = "lib/app/localization/localization.dart"
+output = "lib/app/localization/messages.dart"

@@ -170,9 +170,12 @@ void main() {
         if (isTest &&
             sourcePath.startsWith('test/scripts/') &&
             !isExport &&
-            targetUri.path == root.resolve('scripts/resources.dart').path) {
+            {
+              'scripts/resources.dart',
+              'scripts/toml.dart',
+            }.any((path) => targetUri.path == root.resolve(path).path)) {
           if (!File.fromUri(targetUri).existsSync()) {
-            report('Missing resource generator: $uri.');
+            report('Missing resource tooling: $uri.');
           }
           continue;
         }

@@ -4,10 +4,11 @@ import 'dart:io';
 import 'package:test/test.dart';
 
 import '../../scripts/resources.dart';
+import '../../scripts/toml.dart';
 
 void main() {
   late Directory project;
-  final resourceOptions = File('scripts/resources.json').readAsStringSync();
+  final resourceOptions = File('scripts/resources.toml').readAsStringSync();
 
   void write(String path, String contents) {
     File.fromUri(project.uri.resolve(path))
@@ -26,14 +27,19 @@ void main() {
     );
   }
 
-  void catalog(String locale, Map<String, Object?> messages) {
-    write('assets/localization/$locale.json', jsonEncode(messages));
+  void catalog(
+    String locale,
+    Map<String, Object?> messages, {
+    String module = '',
+  }) {
+    final prefix = module.isEmpty ? '' : '$module/';
+    write('assets/localization/$prefix$locale.json', jsonEncode(messages));
   }
 
   setUp(() {
     project = Directory.systemTemp.createTempSync('realms-resource-test-');
     register([]);
-    write('scripts/resources.json', resourceOptions);
+    write('scripts/resources.toml', resourceOptions);
     catalog('en', {'startGame': 'Start game'});
     catalog('ru', {'startGame': 'Начать игру'});
   });
@@ -53,29 +59,163 @@ void main() {
       String? section,
       void Function(Map<String, Object?>) change,
     ) {
-      final configuration = jsonDecode(resourceOptions) as Map<String, Object?>;
+      final configuration = <String, Object?>{...parseToml(resourceOptions)};
       change(
         section == null
             ? configuration
             : configuration[section]! as Map<String, Object?>,
       );
-      write('scripts/resources.json', jsonEncode(configuration));
+      final source = StringBuffer();
+      for (final section in configuration.entries) {
+        source.writeln('[${section.key}]');
+        for (final field in (section.value! as Map<String, Object?>).entries) {
+          source.writeln('${field.key} = ${jsonEncode(field.value)}');
+        }
+      }
+      write('scripts/resources.toml', source.toString());
     }
 
-    test('rejects missing or malformed configuration', () {
-      File.fromUri(project.uri.resolve('scripts/resources.json')).deleteSync();
+    test('rejects unknown keys inside supported sections', () {
+      configure(
+        'localization',
+        (settings) => settings['translations'] = 'text',
+      );
       expect(
         () => generateAssetSources(project),
-        failsWith('JSON file is missing'),
+        failsWith('unsupported fields'),
       );
-      write('scripts/resources.json', '{invalid');
+    });
+
+    test('requires both sections and their settings', () {
+      configure(null, (settings) => settings.remove('assets'));
+      expect(
+        () => generateAssetSources(project),
+        failsWith('missing required settings assets'),
+      );
+      for (final section in ['assets', 'localization']) {
+        final keys = parseToml(resourceOptions)[section]!.keys;
+        for (final key in keys) {
+          configure(section, (settings) => settings.remove(key));
+          expect(
+            () => generateAssetSources(project),
+            failsWith('missing required settings $key'),
+          );
+        }
+      }
+    });
+
+    test('rejects unsupported localization layouts', () {
+      configure(
+        'localization',
+        (settings) => settings['layout'] = 'locale/module',
+      );
+      expect(() => generateAssetSources(project), failsWith('layout must be'));
+    });
+
+    test('requires exclusions to cover localization within the asset root', () {
+      configure('assets', (settings) => settings['exclude'] = <String>[]);
+      expect(
+        () => generateAssetSources(project),
+        failsWith('exclude must cover'),
+      );
+    });
+
+    test('rejects invalid, unsupported and duplicate exclusion patterns', () {
+      for (final pattern in [
+        '../localization/**',
+        '/localization/**',
+        '*.json',
+        'icons/',
+      ]) {
+        configure(
+          'assets',
+          (settings) => settings['exclude'] = ['localization/**', pattern],
+        );
+        expect(() => generateAssetSources(project), throwsFormatException);
+      }
+      configure(
+        'assets',
+        (settings) =>
+            settings['exclude'] = ['localization/**', 'localization/**'],
+      );
+      expect(
+        () => generateAssetSources(project),
+        failsWith('Duplicate asset exclude'),
+      );
+      configure(
+        'assets',
+        (settings) => settings['exclude'] = 'localization/**',
+      );
+      expect(
+        () => generateAssetSources(project),
+        failsWith('exclude must be a string array'),
+      );
+    });
+
+    test('excludes only configured files and subtrees', () {
+      configure(
+        'assets',
+        (settings) =>
+            settings['exclude'] = ['localization/**', 'notes.txt', 'drafts/**'],
+      );
+      write('assets/notes.txt', 'ignored');
+      write('assets/drafts/invalid name.tmp', 'ignored');
+      write('assets/icons/restart.png', 'image');
+      register(['assets/icons/']);
+      final sources = generateAssetSources(project);
+      expect(sources['lib/app/assets/catalog.dart'], contains('get restart'));
+      expect(sources['lib/app/assets/catalog.dart'], isNot(contains('notes')));
+      expect(sources['lib/app/assets/catalog.dart'], isNot(contains('drafts')));
+      write('assets/drafts2/unregistered.png', 'image');
+      expect(
+        () => generateAssetSources(project),
+        failsWith('Unregistered asset'),
+      );
+    });
+
+    test('rejects excluded files bundled through a parent registration', () {
+      configure(
+        'assets',
+        (settings) =>
+            settings['exclude'] = ['localization/**', 'icons/private.json'],
+      );
+      write('assets/icons/private.json', '{}');
+      register(['assets/icons/']);
+      expect(
+        () => generateAssetSources(project),
+        failsWith('Excluded resource is bundled'),
+      );
+    });
+
+    test('supports separate configured source roots', () async {
+      Directory.fromUri(project.uri.resolve('assets/localization/')).renameSync(
+        Directory.fromUri(project.uri.resolve('translations/')).path,
+      );
+      final configuration = resourceOptions
+          .replaceFirst(
+            'directory = "assets/localization"',
+            'directory = "translations"',
+          )
+          .replaceFirst('exclude = ["localization/**"]', 'exclude = []');
+      write('scripts/resources.toml', configuration);
+      expect(await generateResourceSources(project), hasLength(2));
+    });
+
+    test('rejects missing or malformed configuration', () {
+      File.fromUri(project.uri.resolve('scripts/resources.toml')).deleteSync();
+      expect(
+        () => generateAssetSources(project),
+        failsWith('Configuration file is missing'),
+      );
+      write('scripts/resources.toml', '{invalid');
       expect(() => generateAssetSources(project), throwsFormatException);
     });
 
     test('rejects unknown settings', () {
       configure(
         null,
-        (configuration) => configuration['plugins'] = <Object?>[],
+        (configuration) =>
+            configuration['plugins'] = <String, Object?>{'enabled': 'yes'},
       );
       expect(
         () => generateAssetSources(project),
@@ -115,7 +255,7 @@ void main() {
       configure(
         'assets',
         (configuration) =>
-            configuration['output'] = configuration['entryPoint'],
+            configuration['output'] = configuration['entry_point'],
       );
       expect(() => generateAssetSources(project), failsWith('paths conflict'));
     });
@@ -163,7 +303,7 @@ void main() {
     test('respects configured locations and fallback ordering', () async {
       configure('localization', (configuration) {
         configuration['fallback'] = 'ru';
-        configuration['entryPoint'] = 'lib/languages/languages.dart';
+        configuration['entry_point'] = 'lib/languages/languages.dart';
         configuration['output'] = 'lib/languages/messages.dart';
       });
       final sources = await generateResourceSources(project);
@@ -391,6 +531,207 @@ void main() {
       write('assets/zebra.json', '{}');
       expect(generateAssetSources(project), first);
     });
+  });
+
+  group('Localization directory discovery', () {
+    test(
+      'combines root and nested module catalogs deterministically',
+      () async {
+        catalog('en', {'startGame': 'Play'}, module: 'home');
+        catalog('ru', {'startGame': 'Играть'}, module: 'home');
+        catalog('en', {
+          'score': _message('{points}', {'points': 'int'}),
+        }, module: 'game');
+        catalog('ru', {'score': '{points}'}, module: 'game');
+        final catalogs = validateLocalizationCatalogs(project);
+        expect(catalogs['en'], {
+          'startGame': 'Start game',
+          'home.startGame': 'Play',
+          'game.score': '{points}',
+        });
+        final sources = await generateResourceSources(project);
+        final file = File.fromUri(
+          project.uri.resolve('assets/localization/home/en.json'),
+        );
+        final contents = file.readAsStringSync();
+        file.deleteSync();
+        write('assets/localization/home/en.json', contents);
+        expect(await generateResourceSources(project), sources);
+        final source = sources['lib/app/localization/messages.dart']!;
+        expect(source, contains('AppHomeMessages get home'));
+        expect(source, contains('score({required int points})'));
+        expect(source, isNot(contains('get en')));
+        expect(source, isNot(contains('get ru')));
+      },
+    );
+
+    test(
+      'allows modules without root catalogs and preserves deeper groups',
+      () async {
+        File.fromUri(project.uri.resolve('assets/localization/en.json'))
+            .deleteSync();
+        File.fromUri(project.uri.resolve('assets/localization/ru.json'))
+            .deleteSync();
+        catalog('en', {'title': 'Profile'}, module: 'settings/profile');
+        catalog('ru', {'title': 'Профиль'}, module: 'settings/profile');
+        expect(validateLocalizationCatalogs(project)['en'], {
+          'settings.profile.title': 'Profile',
+        });
+        final sources = await generateResourceSources(project);
+        expect(
+          sources['lib/app/localization/messages.dart'],
+          contains('AppSettingsProfileMessages get profile'),
+        );
+      },
+    );
+
+    test(
+      'a module message named message is not mistaken for metadata',
+      () async {
+        catalog('en', {'message': 'Hello'}, module: 'home');
+        catalog('ru', {'message': 'Привет'}, module: 'home');
+        expect(
+          validateLocalizationCatalogs(project)['en']!['home.message'],
+          'Hello',
+        );
+        expect(
+          (await generateResourceSources(
+            project,
+          ))['lib/app/localization/messages.dart'],
+          contains('String get message'),
+        );
+      },
+    );
+
+    test('normalizes folder names into public group identifiers', () async {
+      catalog('en', {'title': 'Title'}, module: 'Main-menu');
+      catalog('ru', {'title': 'Заголовок'}, module: 'Main-menu');
+      expect(
+        validateLocalizationCatalogs(project)['en']!['mainMenu.title'],
+        'Title',
+      );
+      expect(
+        (await generateResourceSources(
+          project,
+        ))['lib/app/localization/messages.dart'],
+        contains('get mainMenu'),
+      );
+    });
+
+    test('requires every locale in each directory containing catalogs', () {
+      catalog('en', {'title': 'Title'}, module: 'home');
+      expect(
+        () => validateLocalizationCatalogs(project),
+        failsWith('home/ru.json'),
+      );
+      catalog('ru', {'title': 'Заголовок'}, module: 'home');
+      File.fromUri(project.uri.resolve('assets/localization/ru.json'))
+          .deleteSync();
+      expect(
+        () => validateLocalizationCatalogs(project),
+        failsWith('Missing locale catalog'),
+      );
+    });
+
+    test('rejects missing translation keys in a module', () {
+      catalog('en', {'title': 'Title'}, module: 'home');
+      catalog('ru', {'label': 'Заголовок'}, module: 'home');
+      expect(
+        () => validateLocalizationCatalogs(project),
+        failsWith('translation keys differ'),
+      );
+    });
+
+    test('rejects module placeholder mismatches', () {
+      catalog('en', {
+        'score': _message('{points}', {'points': 'int'}),
+      }, module: 'game');
+      catalog('ru', {'score': '{count}'}, module: 'game');
+      expect(
+        () => validateLocalizationCatalogs(project),
+        failsWith('placeholder names'),
+      );
+    });
+
+    for (final folders in [
+      ['Home', 'home'],
+      ['main-menu', 'main_menu'],
+    ]) {
+      test('rejects normalized folder collisions $folders', () {
+        for (final folder in folders) {
+          catalog('en', {'title': 'Title'}, module: folder);
+          catalog('ru', {'title': 'Заголовок'}, module: folder);
+        }
+        expect(
+          () => validateLocalizationCatalogs(project),
+          failsWith('identifier collision'),
+        );
+      });
+    }
+
+    test('rejects directory collisions with root messages or JSON groups', () {
+      catalog('en', {'title': 'Title'}, module: 'startGame');
+      catalog('ru', {'title': 'Заголовок'}, module: 'startGame');
+      expect(
+        () => validateLocalizationCatalogs(project),
+        failsWith('identifier collision'),
+      );
+      catalog('en', {
+        'startGame': {'label': 'Start'},
+      });
+      catalog('ru', {
+        'startGame': {'label': 'Начать'},
+      });
+      expect(
+        () => validateLocalizationCatalogs(project),
+        failsWith('identifier collision'),
+      );
+    });
+
+    test('rejects type collisions across separate directories', () {
+      for (final folder in ['a-b/c', 'a/b-c']) {
+        catalog('en', {'title': 'Title'}, module: folder);
+        catalog('ru', {'title': 'Заголовок'}, module: folder);
+      }
+      expect(
+        () => validateLocalizationCatalogs(project),
+        failsWith('group type collision'),
+      );
+    });
+
+    for (final name in ['class', 'localeName', '1game', 'two words']) {
+      test('rejects invalid or reserved group $name', () {
+        catalog('en', {'title': 'Title'}, module: name);
+        catalog('ru', {'title': 'Заголовок'}, module: name);
+        expect(
+          () => validateLocalizationCatalogs(project),
+          throwsFormatException,
+        );
+      });
+    }
+
+    test('rejects empty module directories and unknown locale files', () {
+      Directory.fromUri(project.uri.resolve('assets/localization/home/'))
+          .createSync();
+      expect(
+        () => validateLocalizationCatalogs(project),
+        failsWith('Empty localization directory'),
+      );
+      catalog('fr', {'title': 'Unused translation'}, module: 'home');
+      expect(
+        () => validateLocalizationCatalogs(project),
+        failsWith('filenames must match'),
+      );
+    });
+
+    test('does not follow localization symlinks', () {
+      Link.fromUri(project.uri.resolve('assets/localization/home'))
+          .createSync(project.parent.path);
+      expect(
+        () => validateLocalizationCatalogs(project),
+        failsWith('symlinks are unsupported'),
+      );
+    }, skip: Platform.isWindows);
   });
 
   group('Localization validation', () {
@@ -648,6 +989,8 @@ void main() {
               '{count, plural, one{{count} ход} few{{count} хода} '
               'many{{count} ходов} other{{count} хода}}',
         });
+        catalog('en', {'caption': 'Directory message'}, module: 'home');
+        catalog('ru', {'caption': 'Сообщение из каталога'}, module: 'home');
         final sources = await generateResourceSources(project);
         expect(await generateResourceSources(project), sources);
         expect(
@@ -673,6 +1016,8 @@ void main() {
     final russian = await AppLocalization.delegate.load(const Locale('ru'));
     expect(english.startGame, 'Start game');
     expect(russian.startGame, 'Начать игру');
+    expect(english.home.caption, 'Directory message');
+    expect(russian.home.caption, 'Сообщение из каталога');
     expect(english.score(points: 1250), '1,250');
     expect(russian.score(points: 1250), '1\u00a0250');
     expect(english.remaining(count: 1), '1 move');
@@ -706,6 +1051,39 @@ void main() {
         );
       },
       timeout: const Timeout(Duration(minutes: 2)),
+    );
+
+    test(
+      'generate and check preserve unchanged contents and timestamps',
+      () async {
+        await updateResources(project, check: false);
+        final files = Directory.fromUri(project.uri.resolve('lib/'))
+            .listSync(recursive: true)
+            .whereType<File>()
+            .toList();
+        final oldTime = DateTime.utc(2020);
+        for (final file in files) {
+          file.setLastModifiedSync(oldTime);
+        }
+        final before = {
+          for (final file in files) file.path: file.readAsStringSync(),
+        };
+        await updateResources(project, check: true);
+        await updateResources(project, check: false);
+        for (final file in files) {
+          expect(file.readAsStringSync(), before[file.path]);
+          expect(file.lastModifiedSync().toUtc(), oldTime);
+        }
+        catalog('ru', {'startGame': 'Изменено'});
+        await expectLater(
+          updateResources(project, check: true),
+          failsWith('stale'),
+        );
+        for (final file in files) {
+          expect(file.readAsStringSync(), before[file.path]);
+          expect(file.lastModifiedSync().toUtc(), oldTime);
+        }
+      },
     );
 
     test('check reports stale output without overwriting it', () async {

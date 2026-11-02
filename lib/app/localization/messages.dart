@@ -38,31 +38,45 @@ final class AppLocalization {
     Locale.fromSubtags(languageCode: 'ru'),
   ];
 
+  /// Messages in the game catalog group.
+  AppGameMessages get game => AppGameMessages._(localeName);
+
+  /// Messages in the home catalog group.
+  AppHomeMessages get home => AppHomeMessages._(localeName);
+
   /// Catalog message: appTitle.
   String get appTitle => switch (localeName) {
     'ru' => 'REALMS',
     _ => 'REALMS',
   };
+}
 
-  /// Catalog message: classicMode.
+/// Typed messages resolved for the active locale.
+final class AppGameMessages {
+  const new _(this.localeName);
+
+  /// The resolved supported locale identifier.
+  final String localeName;
+
+  /// Catalog message: game.classicMode.
   String get classicMode => switch (localeName) {
     'ru' => 'Классический режим',
     _ => 'Classic',
   };
 
-  /// Catalog message: gameOver.
+  /// Catalog message: game.gameOver.
   String get gameOver => switch (localeName) {
     'ru' => 'Ходов больше нет',
     _ => 'No moves left',
   };
 
-  /// Catalog message: gotIt.
+  /// Catalog message: game.gotIt.
   String get gotIt => switch (localeName) {
     'ru' => 'Понятно',
     _ => 'Got it!',
   };
 
-  /// Catalog message: howToPlayDescription.
+  /// Catalog message: game.howToPlayDescription.
   String get howToPlayDescription => switch (localeName) {
     'ru' =>
       'Проводите пальцем по полю, чтобы перемещать '
@@ -73,82 +87,90 @@ final class AppLocalization {
           'Combine identical buildings to evolve them.',
   };
 
-  /// Catalog message: howToPlayKeyboard.
+  /// Catalog message: game.howToPlayKeyboard.
   String get howToPlayKeyboard => switch (localeName) {
     'ru' => 'Клавиатура: стрелки или WASD.',
     _ => 'Keyboard: arrow keys or WASD.',
   };
 
-  /// Catalog message: howToPlayTitle.
+  /// Catalog message: game.howToPlayTitle.
   String get howToPlayTitle => switch (localeName) {
     'ru' => 'Как играть',
     _ => 'How to Play',
   };
 
-  /// Catalog message: moveDown.
+  /// Catalog message: game.moveDown.
   String get moveDown => switch (localeName) {
     'ru' => 'Вниз',
     _ => 'Move down',
   };
 
-  /// Catalog message: moveHint.
+  /// Catalog message: game.moveHint.
   String get moveHint => switch (localeName) {
     'ru' => 'Перемещайте плитки стрелками.',
     _ => 'Move tiles using the arrows.',
   };
 
-  /// Catalog message: moveLeft.
+  /// Catalog message: game.moveLeft.
   String get moveLeft => switch (localeName) {
     'ru' => 'Влево',
     _ => 'Move left',
   };
 
-  /// Catalog message: moveRight.
+  /// Catalog message: game.moveRight.
   String get moveRight => switch (localeName) {
     'ru' => 'Вправо',
     _ => 'Move right',
   };
 
-  /// Catalog message: moveUp.
+  /// Catalog message: game.moveUp.
   String get moveUp => switch (localeName) {
     'ru' => 'Вверх',
     _ => 'Move up',
   };
 
-  /// Catalog message: newGame.
+  /// Catalog message: game.newGame.
   String get newGame => switch (localeName) {
     'ru' => 'Новая игра',
     _ => 'New game',
   };
 
-  /// Catalog message: score.
+  /// Catalog message: game.score.
   String score({required int points}) => switch (localeName) {
     'ru' => points.toString(),
     _ => points.toString(),
   };
 
-  /// Catalog message: scoreLabel.
+  /// Catalog message: game.scoreLabel.
   String get scoreLabel => switch (localeName) {
     'ru' => 'СЧЁТ',
     _ => 'SCORE',
   };
 
-  /// Catalog message: startGame.
+  /// Catalog message: game.youWon.
+  String get youWon => switch (localeName) {
+    'ru' => 'Победа!',
+    _ => 'You won!',
+  };
+}
+
+/// Typed messages resolved for the active locale.
+final class AppHomeMessages {
+  const new _(this.localeName);
+
+  /// The resolved supported locale identifier.
+  final String localeName;
+
+  /// Catalog message: home.startGame.
   String get startGame => switch (localeName) {
     'ru' => 'Начать игру',
     _ => 'Start game',
   };
 
-  /// Catalog message: tagline.
+  /// Catalog message: home.tagline.
   String get tagline => switch (localeName) {
     'ru' => 'Строй. Объединяй. Развивай.',
     _ => 'Build. Merge. Evolve.',
-  };
-
-  /// Catalog message: youWon.
-  String get youWon => switch (localeName) {
-    'ru' => 'Победа!',
-    _ => 'You won!',
   };
 }
 

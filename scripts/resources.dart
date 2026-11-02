@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'toml.dart';
+
 const _generatedHeader =
     '// GENERATED CODE - DO NOT MODIFY BY HAND.\n'
     '// Generator: scripts/resources.dart. Manual edits will be overwritten.\n';
@@ -105,7 +107,7 @@ Future<Map<String, String>> generateResourceSources(Directory project) async {
   if (File.fromUri(project.uri.resolve('l10n.yaml')).existsSync()) {
     throw const FormatException(
       'Remove the obsolete root l10n.yaml; '
-      'scripts/resources.json owns localization configuration.',
+      'scripts/resources.toml owns localization configuration.',
     );
   }
   _checkLegacyBuildOutputs(project, configuration);
@@ -113,7 +115,7 @@ Future<Map<String, String>> generateResourceSources(Directory project) async {
     ...generateAssetSources(project),
     ..._generateMessageSources(project, configuration),
   };
-  final temporary = Directory.systemTemp.createTempSync('realms-resources-');
+  final temporary = Directory.systemTemp.createTempSync('resource-generation-');
   try {
     for (final entry in sources.entries) {
       _write(temporary, entry.key, entry.value);
@@ -148,6 +150,7 @@ final class _ResourceConfiguration {
     this.assetDirectory,
     this.assetEntryPoint,
     this.assetOutput,
+    this.assetExclusions,
     this.catalogDirectory,
     this.locales,
     this.fallback,
@@ -156,31 +159,76 @@ final class _ResourceConfiguration {
   );
 
   factory read(Directory project) {
-    final input = _readJson(
-      File.fromUri(project.uri.resolve('scripts/resources.json')),
-    );
-    _keys(input, {'assets', 'localization'}, 'resources.json');
-    final assets = _map(input['assets'], 'assets configuration');
-    final localization = _map(
-      input['localization'],
-      'localization configuration',
-    );
-    _keys(assets, {
+    const configPath = 'scripts/resources.toml';
+    _rejectLinks(project, configPath);
+    final file = File.fromUri(project.uri.resolve(configPath));
+    if (!file.existsSync()) {
+      throw const FormatException('Configuration file is missing: $configPath');
+    }
+    final input = parseToml(file.readAsStringSync(), filename: configPath);
+    void requireFields(
+      Map<String, Object?> values,
+      Set<String> keys,
+      String section,
+    ) {
+      _keys(values, keys, '$configPath $section');
+      final missing = keys.difference(values.keys.toSet());
+      if (missing.isNotEmpty) {
+        throw FormatException(
+          '$configPath $section: missing required settings '
+          '${missing.join(', ')}.',
+        );
+      }
+    }
+
+    requireFields(input, {'assets', 'localization'}, 'sections');
+    final assets = input['assets']!;
+    final localization = input['localization']!;
+    requireFields(assets, {
       'directory',
-      'entryPoint',
+      'entry_point',
       'output',
-    }, 'assets configuration');
-    _keys(localization, {
+      'exclude',
+    }, '[assets]');
+    requireFields(localization, {
       'directory',
+      'layout',
       'locales',
       'fallback',
-      'entryPoint',
+      'entry_point',
       'output',
-    }, 'localization configuration');
+    }, '[localization]');
+    if (localization['layout'] != 'module/locale') {
+      throw const FormatException(
+        '$configPath [localization]: '
+        'layout must be "module/locale".',
+      );
+    }
+    final exclusions = assets['exclude'];
+    if (exclusions is! List<String>) {
+      throw const FormatException(
+        '$configPath [assets]: exclude must be a string array.',
+      );
+    }
+    for (final pattern in exclusions) {
+      final path = pattern.endsWith('/**')
+          ? pattern.substring(0, pattern.length - 3)
+          : pattern;
+      _relativePath(path, 'exclude pattern');
+      if (path.endsWith('/')) {
+        throw FormatException(
+          'Exclude exact files or subtrees using path/**: $pattern',
+        );
+      }
+    }
+    if (exclusions.toSet().length != exclusions.length) {
+      throw const FormatException('Duplicate asset exclude patterns.');
+    }
     String directory(Object? value) {
       final path = _relativePath(value, 'source directory');
       _rejectLinks(project, path);
       if (path.endsWith('/') ||
+          path == 'lib' ||
           path.startsWith('lib/') ||
           path.startsWith('.')) {
         throw FormatException(
@@ -235,12 +283,13 @@ final class _ResourceConfiguration {
     }
     final configuration = _ResourceConfiguration(
       directory(assets['directory']),
-      output(assets['entryPoint']),
+      output(assets['entry_point']),
       output(assets['output']),
+      List.unmodifiable(exclusions),
       directory(localization['directory']),
       List.unmodifiable(supported),
       localization['fallback']! as String,
-      output(localization['entryPoint']),
+      output(localization['entry_point']),
       output(localization['output']),
     );
     final outputs = {
@@ -265,12 +314,28 @@ final class _ResourceConfiguration {
         'with each entry point beside its generated implementation.',
       );
     }
+    final assetPrefix = '${configuration.assetDirectory}/';
+    if (configuration.catalogDirectory.startsWith(assetPrefix)) {
+      final relative = configuration.catalogDirectory.substring(
+        assetPrefix.length,
+      );
+      if (!exclusions.any(
+        (pattern) =>
+            pattern.endsWith('/**') && _matchesExclusion(relative, pattern),
+      )) {
+        throw FormatException(
+          '$configPath [assets]: exclude must cover '
+          'the localization directory with "$relative/**".',
+        );
+      }
+    }
     return configuration;
   }
 
   final String assetDirectory;
   final String assetEntryPoint;
   final String assetOutput;
+  final List<String> assetExclusions;
   final String catalogDirectory;
   final List<String> locales;
   final String fallback;
@@ -416,7 +481,11 @@ Map<String, String> generateAssetSources(Directory project) {
     File.fromUri(project.uri.resolve('pubspec.yaml')),
   );
   final prefix = '${configuration.assetDirectory}/';
-  final catalogPrefix = '${configuration.catalogDirectory}/';
+  bool excluded(String path) =>
+      path.startsWith(prefix) &&
+      configuration.assetExclusions.any(
+        (pattern) => _matchesExclusion(path.substring(prefix.length), pattern),
+      );
   final registrations = <String>{};
   for (final entry in entries) {
     if (entry is! String) {
@@ -431,10 +500,8 @@ Map<String, String> generateAssetSources(Directory project) {
         'Only $prefix is approved for bundled assets: $path',
       );
     }
-    if (path.startsWith(catalogPrefix)) {
-      throw FormatException(
-        'Localization source catalogs must not be bundled: $path',
-      );
+    if (excluded(path.replaceFirst(RegExp(r'/$'), ''))) {
+      throw FormatException('Excluded resources must not be bundled: $path');
     }
     final isDirectory = path.endsWith('/');
     final exists = isDirectory
@@ -450,27 +517,40 @@ Map<String, String> generateAssetSources(Directory project) {
   final directory = Directory.fromUri(project.uri.resolve(prefix));
   if (!directory.existsSync()) return {};
   if (FileSystemEntity.isLinkSync(directory.path)) {
-    throw const FormatException('The assets/ directory must not be a symlink.');
+    throw FormatException('The $prefix directory must not be a symlink.');
   }
   final paths = <String>[];
-  for (final entity in directory.listSync(
-    recursive: true,
-    followLinks: false,
-  )) {
-    if (entity is Link) {
-      throw FormatException(
-        'Asset symlinks are not reproducible: ${entity.path}',
-      );
-    }
-    if (entity is File && entity.uri.pathSegments.last != '.DS_Store') {
-      final path = entity.uri.path.substring(project.absolute.uri.path.length);
-      if (!path.startsWith(catalogPrefix)) paths.add(path);
+  void discover(Directory directory) {
+    for (final entity in directory.listSync(followLinks: false)) {
+      final path = entity.uri.path
+          .substring(project.absolute.uri.path.length)
+          .replaceFirst(RegExp(r'/$'), '');
+      if (excluded(path)) {
+        final parent = path.substring(0, path.lastIndexOf('/') + 1);
+        if (entity is File && registrations.contains(parent)) {
+          throw FormatException(
+            'Excluded resource is bundled by $parent: $path',
+          );
+        }
+        continue;
+      }
+      if (entity is Link) {
+        throw FormatException('Asset symlinks are not reproducible: $path');
+      }
+      if (entity is Directory) {
+        discover(entity);
+      } else if (entity is File &&
+          entity.uri.pathSegments.last != '.DS_Store') {
+        paths.add(path);
+      }
     }
   }
+
+  discover(directory);
   paths.sort();
   final discoveredPaths = paths.toSet();
   final resources = _AssetGroup('assets', 'AppAssets');
-  final classes = <String, String>{'appassets': 'assets/'};
+  final classes = <String, String>{'appassets': prefix};
   final variants = RegExp(r'^(.+/)([0-9]+(?:\.[0-9]+)?x)/([^/]+)$');
   for (final path in paths) {
     final variant = variants.firstMatch(path);
@@ -500,7 +580,7 @@ Map<String, String> generateAssetSources(Directory project) {
       }
       final extension = isFile ? segment.lastIndexOf('.') : -1;
       final stem = extension > 0 ? segment.substring(0, extension) : segment;
-      final identifier = _assetIdentifier(stem, path);
+      final identifier = _resourceIdentifier(stem, path);
       final origin = segments.take(index + 1).join('/');
       final collisionKey = identifier.toLowerCase();
       final previous = group.origins[collisionKey];
@@ -563,7 +643,7 @@ Map<String, String> generateAssetSources(Directory project) {
     configuration.assetEntryPoint:
         '$_generatedHeader\n'
         "export '${configuration.assetOutput.split('/').last}' "
-        "show assets, ${types.join(', ')};\n",
+        "show ${([...types, 'assets']..sort()).join(', ')};\n",
     configuration.assetOutput: declarations.toString(),
   };
 }
@@ -578,10 +658,10 @@ final class _AssetGroup {
   final files = <String, String>{};
 }
 
-String _assetIdentifier(String name, String path) {
+String _resourceIdentifier(String name, String path) {
   if (!RegExp(r'^[A-Za-z][A-Za-z0-9_-]*$').hasMatch(name)) {
     throw FormatException(
-      'Invalid asset name "$name" in $path. Use ASCII letters, digits, '
+      'Invalid resource name "$name" in $path. Use ASCII letters, digits, '
       'hyphens or underscores, starting with a letter.',
     );
   }
@@ -687,37 +767,121 @@ void _keys(Map<String, Object?> object, Set<String> allowed, String location) {
 }
 
 /// Validates source catalogs, including their generated API and typed messages.
-Map<String, Map<String, Object?>> validateLocalizationCatalogs(
+Map<String, Map<String, String>> validateLocalizationCatalogs(
   Directory project,
 ) {
   final configuration = _ResourceConfiguration.read(project);
   final catalogs = _readCatalogs(project, configuration);
   _compileCatalogs(catalogs, configuration);
-  return catalogs;
+  return {
+    for (final locale in catalogs.entries)
+      locale.key: {
+        for (final message in locale.value.entries)
+          message.key: message.value.text,
+      },
+  };
 }
 
-Map<String, Map<String, Object?>> _readCatalogs(
+Map<String, Map<String, _Message>> _readCatalogs(
   Directory project,
   _ResourceConfiguration configuration,
 ) {
   final directory = Directory.fromUri(
     project.uri.resolve(configuration.catalogDirectory),
   );
-  final expected = configuration.locales
-      .map((locale) => '$locale.json')
-      .toSet();
-  for (final entry in directory.listSync(followLinks: false)) {
-    if (entry is! File || !expected.contains(entry.uri.pathSegments.last)) {
-      throw FormatException(
-        'Unexpected localization catalog: ${entry.path}. '
-        'Catalog filenames must match configured locales.',
-      );
+  final locales = configuration.locales.toList()..sort();
+  final catalogs = {for (final locale in locales) locale: <String, _Message>{}};
+  final groupTypes = <String, String>{};
+  void registerGroups(String messagePath) {
+    final parts = messagePath.split('.');
+    for (var length = 1; length < parts.length; length++) {
+      final group = parts.take(length).join('.');
+      final type = parts.take(length).map(_upperFirst).join().toLowerCase();
+      final previous = groupTypes[type];
+      if (previous != null && previous != group) {
+        throw FormatException(
+          'Localization group type collision: $previous and $group',
+        );
+      }
+      groupTypes[type] = group;
     }
   }
-  return {
-    for (final locale in configuration.locales.toList()..sort())
-      locale: _readJson(File.fromUri(directory.uri.resolve('$locale.json'))),
-  };
+
+  void discover(Directory directory, List<String> groups) {
+    final entries = directory.listSync(followLinks: false)
+      ..sort((first, second) => first.path.compareTo(second.path));
+    final files = <String, File>{};
+    final folders = <Directory>[];
+    for (final entry in entries) {
+      final name = entry.uri.pathSegments.where((part) => part.isNotEmpty).last;
+      if (entry is Directory) {
+        folders.add(entry);
+      } else if (entry is File &&
+          locales.any((locale) => name == '$locale.json')) {
+        files[name] = entry;
+      } else {
+        throw FormatException(
+          'Unexpected localization catalog: ${entry.path}. '
+          'Catalog filenames must match configured locales; '
+          'symlinks are unsupported.',
+        );
+      }
+    }
+    if (files.isEmpty && folders.isEmpty) {
+      throw FormatException('Empty localization directory: ${directory.path}');
+    }
+    final names = <String, String>{};
+    if (files.isNotEmpty) {
+      for (final locale in locales) {
+        final file = files['$locale.json'];
+        if (file == null) {
+          throw FormatException(
+            'Missing locale catalog: ${directory.path}/$locale.json',
+          );
+        }
+        final messages = _readJson(file);
+        for (final key in messages.keys) {
+          names[key.toLowerCase()] = file.path;
+        }
+        try {
+          for (final message in _flattenCatalog(messages).entries) {
+            final path = [...groups, message.key].join('.');
+            registerGroups(path);
+            catalogs[locale]![path] = message.value;
+          }
+        } on FormatException catch (error) {
+          throw FormatException('${file.path}: ${error.message}');
+        }
+      }
+    }
+    for (final folder in folders) {
+      final name = folder.uri.pathSegments
+          .where((part) => part.isNotEmpty)
+          .last;
+      final identifier = _resourceIdentifier(name, folder.path);
+      final previous = names[identifier.toLowerCase()];
+      if (previous != null) {
+        throw FormatException(
+          'Localization identifier collision: '
+          '${folder.path} and $previous map to $identifier.',
+        );
+      }
+      if ({
+        'localeName',
+        'delegate',
+        'localizationsDelegates',
+        'supportedLocales',
+        'forLocale',
+      }.contains(identifier)) {
+        throw FormatException('Reserved localization group: ${folder.path}');
+      }
+      names[identifier.toLowerCase()] = folder.path;
+      discover(folder, [...groups, identifier]);
+    }
+  }
+
+  discover(directory, []);
+  return catalogs;
 }
 
 final class _Message {
@@ -795,18 +959,14 @@ final class _CompiledCatalogs {
 }
 
 _CompiledCatalogs _compileCatalogs(
-  Map<String, Map<String, Object?>> catalogs,
+  Map<String, Map<String, _Message>> catalogs,
   _ResourceConfiguration configuration,
 ) {
-  final flattened = {
-    for (final entry in catalogs.entries)
-      entry.key: _flattenCatalog(entry.value),
-  };
-  final template = flattened[configuration.fallback]!;
+  final template = catalogs[configuration.fallback]!;
   final expressions = <String, Map<String, String>>{};
   final parameters = <String, Map<String, Map<String, Object?>>>{};
   final intlSymbols = <String>{};
-  for (final entry in flattened.entries) {
+  for (final entry in catalogs.entries) {
     if (!_sameKeys(template.keys, entry.value.keys)) {
       throw FormatException(
         '${entry.key}: translation keys differ from ${configuration.fallback}.',
@@ -848,7 +1008,7 @@ _CompiledCatalogs _compileCatalogs(
         ..sort(),
     ];
     for (final locale in locales) {
-      final message = flattened[locale]![entry.key]!;
+      final message = catalogs[locale]![entry.key]!;
       if (message.parameters != null) {
         if (!_sameKeys(metadata.keys, message.parameters!.keys)) {
           throw FormatException(
@@ -1245,7 +1405,7 @@ final class _AppLocalizationDelegate
     configuration.messageEntryPoint:
         '$_generatedHeader'
         "export '${configuration.messageOutput.split('/').last}' "
-        "show ${classes.values.join(', ')};\n",
+        "show ${(classes.values.toList()..sort()).join(', ')};\n",
     configuration.messageOutput: source.toString(),
   };
 }
@@ -1259,4 +1419,11 @@ void _rejectLinks(Directory project, String path) {
     }
     directory = Directory.fromUri(child);
   }
+}
+
+// Exclusions are exact resource paths or a directory followed by /**.
+bool _matchesExclusion(String path, String pattern) {
+  if (!pattern.endsWith('/**')) return path == pattern;
+  final directory = pattern.substring(0, pattern.length - 3);
+  return path == directory || path.startsWith('$directory/');
 }

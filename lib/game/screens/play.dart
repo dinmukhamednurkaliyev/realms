@@ -237,7 +237,7 @@ final class _PlayScreenState extends State<PlayScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final localization = AppLocalization.of(context);
+    final localization = AppLocalization.of(context).game;
     final gameState = _controller.state;
     final showTutorial = _controller.showTutorial;
     final canMove = _controller.canMove;
