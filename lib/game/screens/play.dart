@@ -6,6 +6,8 @@ import 'package:realms/app/localization/localization.dart';
 import 'package:realms/game/engine/engine.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'board.dart';
+
 /// Coordinates a play session and its persisted, one-time instructions.
 final class PlayController extends ChangeNotifier {
   /// Randomness and tutorial storage can be supplied for deterministic tests.
@@ -22,6 +24,8 @@ final class PlayController extends ChangeNotifier {
   final Random _random;
   final PlayTutorialStore _tutorialStore;
   late GameState _state;
+  GameBoard? _previousBoard;
+  GameMoveResult? _lastMove;
   bool _tutorialLoaded = false;
   bool _showTutorial = false;
   bool _disposed = false;
@@ -31,6 +35,12 @@ final class PlayController extends ChangeNotifier {
 
   /// The immutable engine snapshot for this session.
   GameState get state => _state;
+
+  /// Board before the last successful move, for presentation animations.
+  GameBoard? get previousBoard => _previousBoard;
+
+  /// Engine events from the last successful move, for presentation animations.
+  GameMoveResult? get lastMove => _lastMove;
 
   /// False while the persisted tutorial preference is being read.
   bool get tutorialLoaded => _tutorialLoaded;
@@ -75,6 +85,8 @@ final class PlayController extends ChangeNotifier {
   /// Restarts with the same game configuration and random source.
   void startNewGame() {
     if (_disposed) return;
+    _previousBoard = null;
+    _lastMove = null;
     _state = GameState.start(
       configuration: _state.configuration,
       random: _random,
@@ -87,6 +99,8 @@ final class PlayController extends ChangeNotifier {
     if (!canMove) return;
     final result = _state.moveWithResult(direction: direction, random: _random);
     if (!result.changed) return;
+    _previousBoard = _state.board;
+    _lastMove = result;
     _state = result.state;
     notifyListeners();
   }
@@ -136,22 +150,55 @@ final class PlayScreen extends StatefulWidget {
   State<PlayScreen> createState() => _PlayScreenState();
 }
 
-final class _PlayScreenState extends State<PlayScreen> {
+final class _PlayScreenState extends State<PlayScreen>
+    with SingleTickerProviderStateMixin {
   static const double _minimumSwipeDistance = 30;
 
   final FocusNode _focusNode = FocusNode(debugLabel: 'Realms play controls');
   Offset _panDistance = Offset.zero;
 
   late PlayController _controller;
+  late final AnimationController _boardAnimation;
+  late GameState _observedState;
+
+  void _onAnimationFrame() {
+    if (mounted) setState(() {});
+  }
+
+  void _onAnimationStatus(AnimationStatus status) {
+    if (status == AnimationStatus.completed && mounted) {
+      setState(() {});
+    }
+  }
 
   @override
   void initState() {
     super.initState();
     _controller = widget.controller ?? PlayController();
+    _observedState = _controller.state;
+    _boardAnimation =
+        AnimationController(
+            vsync: this,
+            duration: const Duration(milliseconds: 240),
+            value: 1,
+          )
+          ..addListener(_onAnimationFrame)
+          ..addStatusListener(_onAnimationStatus);
     _controller.addListener(_onChanged);
   }
 
-  void _onChanged() => setState(() {});
+  void _onChanged() {
+    final nextState = _controller.state;
+    if (!identical(_observedState, nextState)) {
+      _observedState = nextState;
+      if (_controller.lastMove != null) {
+        _boardAnimation.forward(from: 0);
+      } else {
+        _boardAnimation.value = 1;
+      }
+    }
+    if (mounted) setState(() {});
+  }
 
   @override
   void didUpdateWidget(PlayScreen oldWidget) {
@@ -160,6 +207,13 @@ final class _PlayScreenState extends State<PlayScreen> {
     _controller.removeListener(_onChanged);
     if (oldWidget.controller == null) _controller.dispose();
     _controller = widget.controller ?? PlayController();
+    _observedState = _controller.state;
+    // The updated controller starts from its current snapshot, without a tween.
+    _boardAnimation.removeListener(_onAnimationFrame);
+    _boardAnimation.removeStatusListener(_onAnimationStatus);
+    _boardAnimation.value = 1;
+    _boardAnimation.addListener(_onAnimationFrame);
+    _boardAnimation.addStatusListener(_onAnimationStatus);
     _controller.addListener(_onChanged);
   }
 
@@ -167,6 +221,9 @@ final class _PlayScreenState extends State<PlayScreen> {
   void dispose() {
     _controller.removeListener(_onChanged);
     if (widget.controller == null) _controller.dispose();
+    _boardAnimation.removeListener(_onAnimationFrame);
+    _boardAnimation.removeStatusListener(_onAnimationStatus);
+    _boardAnimation.dispose();
     _focusNode.dispose();
     super.dispose();
   }
@@ -240,9 +297,8 @@ final class _PlayScreenState extends State<PlayScreen> {
     final localization = AppLocalization.of(context).game;
     final gameState = _controller.state;
     final showTutorial = _controller.showTutorial;
-    final canMove = _controller.canMove;
+    final canMove = _controller.canMove && !_boardAnimation.isAnimating;
     final board = gameState.board;
-    final colorScheme = Theme.of(context).colorScheme;
 
     return Focus(
       focusNode: _focusNode,
@@ -292,46 +348,11 @@ final class _PlayScreenState extends State<PlayScreen> {
                               onPanEnd: canMove
                                   ? (details) => _handlePanEnd(canMove)
                                   : null,
-                              child: AspectRatio(
-                                aspectRatio: board.columnCount / board.rowCount,
-                                child: GridView.builder(
-                                  physics: const NeverScrollableScrollPhysics(),
-                                  itemCount: board.rowCount * board.columnCount,
-                                  gridDelegate:
-                                      SliverGridDelegateWithFixedCrossAxisCount(
-                                        crossAxisCount: board.columnCount,
-                                        mainAxisSpacing: 8,
-                                        crossAxisSpacing: 8,
-                                      ),
-                                  itemBuilder: (context, index) {
-                                    final rowIndex = index ~/ board.columnCount;
-                                    final columnIndex =
-                                        index % board.columnCount;
-                                    final tileLevel = board.tileAt(
-                                      rowIndex: rowIndex,
-                                      columnIndex: columnIndex,
-                                    );
-
-                                    return DecoratedBox(
-                                      key: ValueKey('board_cell_$index'),
-                                      decoration: BoxDecoration(
-                                        color: tileLevel == null
-                                            ? colorScheme
-                                                  .surfaceContainerHighest
-                                            : colorScheme.primaryContainer,
-                                        borderRadius: BorderRadius.circular(10),
-                                      ),
-                                      child: Center(
-                                        child: Text(
-                                          tileLevel?.toString() ?? '',
-                                          style: Theme.of(context)
-                                              .textTheme
-                                              .titleLarge,
-                                        ),
-                                      ),
-                                    );
-                                  },
-                                ),
+                              child: PlayBoard(
+                                board: board,
+                                previousBoard: _controller.previousBoard,
+                                lastMove: _controller.lastMove,
+                                progress: _boardAnimation.value,
                               ),
                             ),
                           ),
