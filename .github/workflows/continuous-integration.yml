@@ -1,5 +1,6 @@
-
 name: Continuous Integration
+
+# Triggers
 
 on:
   push:
@@ -12,14 +13,21 @@ on:
 
   workflow_dispatch:
 
+# Security
+
 permissions:
   contents: read
 
+# Concurrency
+
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
+# Jobs
+
 jobs:
+  # Code Quality
 
   validation:
     name: Validate Code
@@ -35,7 +43,7 @@ jobs:
       - name: Set up development environment
         uses: jdx/mise-action@08ae2a091c038e1e05ec6f5115dc5c69d5a2a6b8 # v5.1.2
         with:
-          version: 2026.10.8
+          version: 2026.10.17
 
       - name: Restore locked dependencies
         run: mise run dependencies:verify
@@ -43,6 +51,7 @@ jobs:
       - name: Verify code quality
         run: mise run verify
 
+  # Web Application
 
   web:
     name: Build Web
@@ -58,13 +67,15 @@ jobs:
       - name: Set up development environment
         uses: jdx/mise-action@08ae2a091c038e1e05ec6f5115dc5c69d5a2a6b8 # v5.1.2
         with:
-          version: 2026.10.8
+          version: 2026.10.17
 
       - name: Restore locked dependencies
         run: mise run dependencies:verify
 
       - name: Build web application
         run: mise run build:web
+
+  # Android Application
 
   android:
     name: Build Android
@@ -80,11 +91,10 @@ jobs:
       - name: Set up development environment
         uses: jdx/mise-action@08ae2a091c038e1e05ec6f5115dc5c69d5a2a6b8 # v5.1.2
         with:
-          version: 2026.10.8
+          version: 2026.10.17
 
       - name: Restore locked dependencies
         run: mise run dependencies:verify
 
       - name: Build Android application
         run: mise run build:android:debug
-
