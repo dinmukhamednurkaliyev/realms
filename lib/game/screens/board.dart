@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:realms/app/assets/assets.dart';
 import 'package:realms/game/engine/engine.dart';
 
 /// Draws a game board and the movement, merge, and spawn phases of one move.
@@ -28,8 +29,52 @@ final class PlayBoard extends StatelessWidget {
   final double progress;
 
   static const double _spacing = 8;
-  static const double _slideEnd = 0.60;
-  static const double _spawnStart = 0.80;
+
+  /// End of the sliding phase, used to synchronize merge sound effects.
+  static const double slideEnd = 0.52;
+
+  /// Start of the new-tile appearance phase.
+  static const double spawnStart = 0.76;
+
+  static const int _imageCacheWidth = 512;
+
+  // Asset keys come from the project resource generator.
+  // An empty cell has no image, and missing higher levels use numbers.
+  static String? _imageForLevel(int? level) => switch (level) {
+    1 => assets.game.forest.levels.one,
+    2 => assets.game.forest.levels.two,
+    3 => assets.game.forest.levels.three,
+    4 => assets.game.forest.levels.four,
+    5 => assets.game.forest.levels.five,
+    6 => assets.game.forest.levels.six,
+    _ => null,
+  };
+
+  static Widget _artwork(BuildContext context, int? level) {
+    final theme = Theme.of(context);
+    final image = _imageForLevel(level);
+
+    if (image != null) {
+      return Image.asset(
+        image,
+        fit: BoxFit.contain,
+        cacheWidth: _imageCacheWidth,
+      );
+    }
+
+    // Null means an empty cell; higher levels are temporary placeholders.
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: level == null
+            ? theme.colorScheme.surfaceContainerHighest
+            : theme.colorScheme.primaryContainer,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: level == null
+          ? null
+          : Center(child: Text('$level', style: theme.textTheme.titleLarge)),
+    );
+  }
 
   static double _fraction(double value, double start, double end) {
     if (value <= start) return 0;
@@ -42,7 +87,6 @@ final class PlayBoard extends StatelessWidget {
     final previous = previousBoard;
     final move = lastMove;
     final animating = previous != null && move != null && progress < 1;
-    final theme = Theme.of(context);
 
     return AspectRatio(
       aspectRatio: board.columnCount / board.rowCount,
@@ -65,6 +109,7 @@ final class PlayBoard extends StatelessWidget {
             required int level,
             required String identifier,
             double scale = 1,
+            double opacity = 1,
             Offset? location,
           }) {
             final target = location ?? offset(position);
@@ -73,16 +118,13 @@ final class PlayBoard extends StatelessWidget {
               top: target.dy,
               width: cellWidth,
               height: cellHeight,
-              child: Transform.scale(
-                scale: scale,
-                child: DecoratedBox(
-                  key: ValueKey(identifier),
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.primaryContainer,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Center(
-                    child: Text('$level', style: theme.textTheme.titleLarge),
+              child: Opacity(
+                opacity: opacity,
+                child: Transform.scale(
+                  scale: scale,
+                  child: SizedBox.expand(
+                    key: ValueKey(identifier),
+                    child: _artwork(context, level),
                   ),
                 ),
               ),
@@ -97,24 +139,22 @@ final class PlayBoard extends StatelessWidget {
                   top: row * (cellHeight + _spacing),
                   width: cellWidth,
                   height: cellHeight,
-                  child: DecoratedBox(
+                  child: SizedBox.expand(
                     key: ValueKey(
                       'board_cell_${row * board.columnCount + column}',
                     ),
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.surfaceContainerHighest,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
+                    child: _artwork(context, null),
                   ),
                 ),
           ];
 
-          if (previous != null && move != null && progress < _slideEnd) {
+          if (previous != null && move != null && progress < slideEnd) {
             final destinations = {
               for (final movement in move.movements) movement.from: movement.to,
             };
+
             final slide = Curves.easeOutCubic.transform(
-              _fraction(progress, 0, _slideEnd),
+              _fraction(progress, 0, slideEnd),
             );
 
             for (var row = 0; row < previous.rowCount; row++) {
@@ -123,10 +163,12 @@ final class PlayBoard extends StatelessWidget {
                   rowIndex: row,
                   columnIndex: column,
                 );
+
                 if (level == null) continue;
 
                 final source = (rowIndex: row, columnIndex: column);
                 final destination = destinations[source] ?? source;
+
                 cells.add(
                   tile(
                     position: source,
@@ -145,30 +187,34 @@ final class PlayBoard extends StatelessWidget {
             final mergedPositions = animating
                 ? {for (final merge in move.merges) merge.destination}
                 : <BoardPosition>{};
+
             final spawnPosition = animating ? move.spawnedTile?.position : null;
 
             for (var row = 0; row < board.rowCount; row++) {
               for (var column = 0; column < board.columnCount; column++) {
                 final level = board.tileAt(rowIndex: row, columnIndex: column);
+
                 if (level == null) continue;
 
                 final position = (rowIndex: row, columnIndex: column);
-                if (position == spawnPosition && progress < _spawnStart) {
+
+                if (position == spawnPosition && progress < spawnStart) {
                   continue;
                 }
 
                 var scale = 1.0;
-                if (position == spawnPosition) {
-                  scale = Curves.easeOutBack.transform(
-                    _fraction(progress, _spawnStart, 1),
-                  );
+                var opacity = 1.0;
+
+                if (position == spawnPosition && animating) {
+                  final phase = _fraction(progress, spawnStart, 1);
+
+                  scale = 0.55 + 0.45 * Curves.easeOutBack.transform(phase);
+                  opacity = Curves.easeOut.transform(phase);
                 } else if (mergedPositions.contains(position)) {
-                  scale =
-                      0.85 +
-                      0.15 *
-                          Curves.easeOutBack.transform(
-                            _fraction(progress, _slideEnd, _spawnStart),
-                          );
+                  final phase = _fraction(progress, slideEnd, spawnStart);
+
+                  // A single controlled impact: grow and settle back to 1.
+                  scale = 1 + 0.16 * (4 * phase * (1 - phase));
                 }
 
                 cells.add(
@@ -177,6 +223,7 @@ final class PlayBoard extends StatelessWidget {
                     level: level,
                     identifier: 'tile_${row}_$column',
                     scale: scale,
+                    opacity: opacity,
                   ),
                 );
               }
