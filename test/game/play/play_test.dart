@@ -3,7 +3,7 @@ import 'dart:math';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:realms/game/engine/engine.dart';
-import 'package:realms/game/screens/play.dart';
+import 'package:realms/game/play/controller.dart';
 
 void main() {
   group('Play controller lifecycle', () {

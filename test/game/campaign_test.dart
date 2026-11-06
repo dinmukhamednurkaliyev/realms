@@ -1,7 +1,7 @@
 import 'dart:math';
 
+import 'package:realms/game/campaign.dart';
 import 'package:realms/game/engine/engine.dart';
-import 'package:realms/game/modes/modes.dart';
 import 'package:test/test.dart';
 
 void main() {

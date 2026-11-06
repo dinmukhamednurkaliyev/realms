@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:realms/app/assets/assets.dart';
+import 'package:realms/app/appearance/appearance.dart';
+import 'package:realms/app/asset/asset.dart';
 import 'package:realms/game/engine/engine.dart';
 
 /// Draws a game board and the movement, merge, and spawn phases of one move.
@@ -28,8 +29,6 @@ final class PlayBoard extends StatelessWidget {
   /// Normalized animation progress from zero (old board) to one (new board).
   final double progress;
 
-  static const double _spacing = 8;
-
   /// End of the sliding phase, used to synchronize merge sound effects.
   static const double slideEnd = 0.52;
 
@@ -41,39 +40,39 @@ final class PlayBoard extends StatelessWidget {
   // Asset keys come from the project resource generator.
   // An empty cell has no image, and missing higher levels use numbers.
   static String? _imageForLevel(int? level) => switch (level) {
-    1 => assets.game.forest.levels.one,
-    2 => assets.game.forest.levels.two,
-    3 => assets.game.forest.levels.three,
-    4 => assets.game.forest.levels.four,
-    5 => assets.game.forest.levels.five,
-    6 => assets.game.forest.levels.six,
+    1 => assets.game.images.forest.levels.one,
+    2 => assets.game.images.forest.levels.two,
+    3 => assets.game.images.forest.levels.three,
+    4 => assets.game.images.forest.levels.four,
+    5 => assets.game.images.forest.levels.five,
+    6 => assets.game.images.forest.levels.six,
     _ => null,
   };
 
   static Widget _artwork(BuildContext context, int? level) {
     final theme = Theme.of(context);
+    final appearance = GameAppearance.of(context);
     final image = _imageForLevel(level);
+    Widget fallback() => DecoratedBox(
+      decoration: BoxDecoration(
+        color: level == null ? appearance.emptyCell : appearance.fallbackTile,
+        borderRadius: BorderRadius.circular(appearance.cellRadius),
+      ),
+      child: level == null
+          ? null
+          : Center(child: Text('$level', style: theme.textTheme.titleLarge)),
+    );
 
     if (image != null) {
       return Image.asset(
         image,
         fit: BoxFit.contain,
         cacheWidth: _imageCacheWidth,
+        errorBuilder: (context, error, stackTrace) => fallback(),
       );
     }
 
-    // Null means an empty cell; higher levels are temporary placeholders.
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: level == null
-            ? theme.colorScheme.surfaceContainerHighest
-            : theme.colorScheme.primaryContainer,
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: level == null
-          ? null
-          : Center(child: Text('$level', style: theme.textTheme.titleLarge)),
-    );
+    return fallback();
   }
 
   static double _fraction(double value, double start, double end) {
@@ -84,6 +83,7 @@ final class PlayBoard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final spacing = GameAppearance.of(context).cellSpacing;
     final previous = previousBoard;
     final move = lastMove;
     final animating = previous != null && move != null && progress < 1;
@@ -93,15 +93,15 @@ final class PlayBoard extends StatelessWidget {
       child: LayoutBuilder(
         builder: (context, constraints) {
           final cellWidth =
-              (constraints.maxWidth - _spacing * (board.columnCount - 1)) /
+              (constraints.maxWidth - spacing * (board.columnCount - 1)) /
               board.columnCount;
           final cellHeight =
-              (constraints.maxHeight - _spacing * (board.rowCount - 1)) /
+              (constraints.maxHeight - spacing * (board.rowCount - 1)) /
               board.rowCount;
 
           Offset offset(BoardPosition position) => Offset(
-            position.columnIndex * (cellWidth + _spacing),
-            position.rowIndex * (cellHeight + _spacing),
+            position.columnIndex * (cellWidth + spacing),
+            position.rowIndex * (cellHeight + spacing),
           );
 
           Widget tile({
@@ -135,8 +135,8 @@ final class PlayBoard extends StatelessWidget {
             for (var row = 0; row < board.rowCount; row++)
               for (var column = 0; column < board.columnCount; column++)
                 Positioned(
-                  left: column * (cellWidth + _spacing),
-                  top: row * (cellHeight + _spacing),
+                  left: column * (cellWidth + spacing),
+                  top: row * (cellHeight + spacing),
                   width: cellWidth,
                   height: cellHeight,
                   child: SizedBox.expand(

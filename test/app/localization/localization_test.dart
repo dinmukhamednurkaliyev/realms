@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart' show CupertinoLocalizations;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:realms/app/app.dart';
+import 'package:realms/app/audio/audio.dart';
 import 'package:realms/app/localization/localization.dart';
 import 'package:realms/game/game.dart';
 import 'package:realms/home/home.dart';
@@ -31,7 +32,9 @@ void main() {
 
     final preference = ValueNotifier<Locale?>(null);
     addTearDown(preference.dispose);
-    await tester.pumpWidget(RealmsApp(localePreference: preference));
+    await tester.pumpWidget(
+      RealmsApp(localePreference: preference, audio: const _SilentAudio()),
+    );
     await tester.pumpAndSettle();
 
     expect(find.text('Начать игру'), findsOneWidget);
@@ -49,7 +52,9 @@ void main() {
 
     final preference = ValueNotifier<Locale?>(null);
     addTearDown(preference.dispose);
-    await tester.pumpWidget(RealmsApp(localePreference: preference));
+    await tester.pumpWidget(
+      RealmsApp(localePreference: preference, audio: const _SilentAudio()),
+    );
     await tester.pumpAndSettle();
 
     expect(find.text('Start game'), findsOneWidget);
@@ -64,7 +69,9 @@ void main() {
     (tester) async {
       final preference = ValueNotifier<Locale?>(null);
       addTearDown(preference.dispose);
-      await tester.pumpWidget(RealmsApp(localePreference: preference));
+      await tester.pumpWidget(
+        RealmsApp(localePreference: preference, audio: const _SilentAudio()),
+      );
 
       await tester.tap(find.text('Start game'));
       await tester.pumpAndSettle();
@@ -103,7 +110,9 @@ void main() {
     addTearDown(tester.platformDispatcher.clearLocalesTestValue);
     final preference = ValueNotifier<Locale?>(null);
     addTearDown(preference.dispose);
-    await tester.pumpWidget(RealmsApp(localePreference: preference));
+    await tester.pumpWidget(
+      RealmsApp(localePreference: preference, audio: const _SilentAudio()),
+    );
     await tester.pumpAndSettle();
 
     preference.value = const Locale('en');
@@ -150,7 +159,9 @@ void main() {
     addTearDown(tester.platformDispatcher.clearPlatformBrightnessTestValue);
     final preference = ValueNotifier<Locale?>(null);
     addTearDown(preference.dispose);
-    await tester.pumpWidget(RealmsApp(localePreference: preference));
+    await tester.pumpWidget(
+      RealmsApp(localePreference: preference, audio: const _SilentAudio()),
+    );
     await tester.pumpAndSettle();
     final context = tester.element(find.byType(HomeScreen));
     final light = Theme.of(context);
@@ -170,4 +181,12 @@ class _LocalizedText extends StatelessWidget {
   @override
   Widget build(BuildContext context) =>
       Text(AppLocalization.of(context).home.startGame);
+}
+
+final class _SilentAudio implements AudioPlayback {
+  const new();
+  @override
+  Future<void> initialize() async {}
+  @override
+  void play(SoundEffect effect, {double volume = 1}) {}
 }

@@ -5,7 +5,8 @@ export 'catalog.dart'
     show
         AppAssets,
         AppAssetsGame,
-        AppAssetsGameForest,
-        AppAssetsGameForestLevels,
+        AppAssetsGameImages,
+        AppAssetsGameImagesForest,
+        AppAssetsGameImagesForestLevels,
         AppAssetsGameSounds,
         assets;

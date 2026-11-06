@@ -23,6 +23,16 @@ void main() {
     expect(result.exitCode, 0, reason: '${result.stderr}');
   });
 
+  test('allows Play to consume the single-file Campaign API', () async {
+    final result = await _checkArchitecture({
+      'lib/game/play/controller.dart':
+          "import 'package:realms/game/campaign.dart';\n"
+          "import 'package:realms/game/engine/engine.dart';\n",
+    });
+
+    expect(result.exitCode, 0, reason: '${result.stderr}');
+  });
+
   test(
     'allows generator tests to import the project resource script',
     () async {
@@ -46,6 +56,85 @@ void main() {
   });
 
   const rejectedDependencies = [
+    (
+      name: 'unowned Game implementations outside a functional module',
+      path: 'lib/game/extra.dart',
+      source: 'class Extra {}\n',
+      message: 'Implementation libraries must belong to a logical module',
+    ),
+    (
+      name: 'Play importing its own Game facade',
+      path: 'lib/game/play/screen.dart',
+      source: "import '../game.dart';\n",
+      message: 'must not import their own module entry point',
+    ),
+    (
+      name: 'App bypassing the Play public API',
+      path: 'lib/app/app.dart',
+      source: "import 'package:realms/game/play/screen.dart';\n",
+      message: 'Consume game/play through package:realms/game/game.dart',
+    ),
+    (
+      name: 'Campaign importing Flutter',
+      path: 'lib/game/campaign.dart',
+      source: "import 'package:flutter/widgets.dart';\n",
+      message: 'Engine and Campaign may only import Dart and game internals',
+    ),
+    (
+      name: 'Audio depending on Campaign',
+      path: 'lib/app/audio/audio.dart',
+      source: "import 'package:realms/game/campaign.dart';\n",
+      message: 'Forbidden dependency',
+    ),
+    (
+      name: 'Asset depending on Play',
+      path: 'lib/app/asset/catalog.dart',
+      source: "import 'package:realms/game/game.dart';\n",
+      message: 'Forbidden dependency',
+    ),
+    (
+      name: 'Localization depending on Campaign',
+      path: 'lib/app/localization/messages.dart',
+      source: "import 'package:realms/game/campaign.dart';\n",
+      message: 'Forbidden dependency',
+    ),
+    (
+      name: 'Appearance depending on Engine',
+      path: 'lib/app/appearance/theme.dart',
+      source: "import 'package:realms/game/engine/engine.dart';\n",
+      message: 'Forbidden dependency',
+    ),
+    (
+      name: 'audio depending on gameplay rules',
+      path: 'lib/app/audio/audio.dart',
+      source: "import 'package:realms/game/engine/engine.dart';\n",
+      message: 'Forbidden dependency',
+    ),
+    (
+      name: 'audio depending on application composition',
+      path: 'lib/app/audio/audio.dart',
+      source: "import 'package:realms/app/app.dart';\n",
+      message: 'Forbidden dependency',
+    ),
+    (
+      name: 'Play accessing SoLoud directly',
+      path: 'lib/game/play/screen.dart',
+      source: "import 'package:flutter_soloud/flutter_soloud.dart';\n",
+      message: 'Only Audio may access',
+    ),
+    (
+      name: 'engine accessing audio',
+      path: 'lib/game/engine/state.dart',
+      source: "import 'package:realms/app/audio/audio.dart';\n",
+      message: 'Forbidden dependency',
+    ),
+    (
+      name: 'engine accessing appearance',
+      path: 'lib/game/engine/state.dart',
+      source: "import 'package:realms/app/appearance/appearance.dart';\n",
+      message: 'Forbidden dependency',
+    ),
+
     (
       name: 'import aliases',
       path: 'lib/main.dart',
@@ -77,14 +166,14 @@ void main() {
       message: 'Forbidden dependency',
     ),
     (
-      name: 'engine depending on a concrete mode',
+      name: 'engine depending on Campaign',
       path: 'lib/game/engine/state.dart',
-      source: "import 'package:realms/game/modes/modes.dart';\n",
+      source: "import 'package:realms/game/campaign.dart';\n",
       message: 'Forbidden dependency',
     ),
     (
-      name: 'modes depending on presentation',
-      path: 'lib/game/modes/campaign.dart',
+      name: 'Campaign depending on Play',
+      path: 'lib/game/campaign.dart',
       source: "import 'package:realms/game/game.dart';\n",
       message: 'Forbidden dependency',
     ),
@@ -150,13 +239,13 @@ void main() {
     ),
     (
       name: 'Game importing Engine implementation files',
-      path: 'lib/game/screens/play.dart',
+      path: 'lib/game/play/screen.dart',
       source: "import 'package:realms/game/engine/state.dart';\n",
       message: 'Consume game/engine through',
     ),
     (
       name: 'relative imports across module boundaries',
-      path: 'lib/game/screens/play.dart',
+      path: 'lib/game/play/screen.dart',
       source: "import '../engine/engine.dart';\n",
       message: 'Consume game/engine through',
     ),
@@ -186,7 +275,7 @@ void main() {
     ),
     (
       name: 'tests importing implementation from another module',
-      path: 'test/game/modes/campaign_test.dart',
+      path: 'test/game/campaign_test.dart',
       source: "import 'package:realms/game/engine/state.dart';\n",
       message: 'Tests access other modules through their public entry points',
     ),
@@ -203,8 +292,8 @@ void main() {
 
   test('rejects overlapping public names across module APIs', () async {
     final result = await _checkArchitecture({
-      'lib/game/game.dart': "export 'screens/play.dart' show GameBoard;\n",
-      'lib/game/screens/play.dart': 'class GameBoard {}\n',
+      'lib/game/game.dart': "export 'play/screen.dart' show GameBoard;\n",
+      'lib/game/play/screen.dart': 'class GameBoard {}\n',
     });
 
     expect(result.exitCode, 1);
@@ -228,6 +317,9 @@ Future<ProcessResult> _checkArchitecture(Map<String, String> overrides) {
         "import 'package:realms/app/localization/localization.dart';\n"
         "import 'package:realms/home/home.dart';\n"
         "import 'package:realms/game/game.dart';\n",
+    'lib/app/audio/audio.dart': 'class AppAudio {}\n',
+    'lib/app/asset/asset.dart': "export 'catalog.dart' show assets;\n",
+    'lib/app/asset/catalog.dart': 'const assets = <String>[];\n',
     'lib/app/appearance/appearance.dart':
         "export 'theme.dart' show lightTheme;\n",
     'lib/app/appearance/theme.dart': 'const lightTheme = 0;\n',
@@ -235,18 +327,31 @@ Future<ProcessResult> _checkArchitecture(Map<String, String> overrides) {
     'lib/app/localization/messages.dart': 'class AppLocalization {}\n',
     'lib/home/home.dart':
         "import 'package:realms/app/localization/localization.dart';\n",
-    'lib/game/game.dart': "export 'screens/play.dart' show PlayScreen;\n",
+    'lib/game/game.dart':
+        "export 'play/controller.dart' show PlayController;\n"
+        "export 'play/screen.dart' show PlayScreen;\n",
     'lib/game/engine/engine.dart':
         "export 'board.dart' show GameBoard;\n"
         "export 'state.dart' show GameState;\n",
     'lib/game/engine/board.dart': 'class GameBoard {}\n',
     'lib/game/engine/state.dart': "import 'board.dart';\n",
-    'lib/game/modes/modes.dart': "export 'campaign.dart' show CampaignLevel;\n",
-    'lib/game/modes/campaign.dart':
-        "import 'package:realms/game/engine/engine.dart';\n",
-    'lib/game/screens/play.dart':
+    'lib/game/campaign.dart':
         "import 'package:realms/game/engine/engine.dart';\n"
-        "import 'package:realms/app/localization/localization.dart';\n",
+        'class CampaignLevel {}\n',
+    'lib/game/play/controller.dart':
+        "import 'package:realms/game/engine/engine.dart';\n",
+    'lib/game/play/board.dart':
+        "import 'package:realms/game/engine/engine.dart';\n",
+    'lib/game/play/screen.dart':
+        "import 'package:realms/game/engine/engine.dart';\n"
+        "import 'package:realms/app/localization/localization.dart';\n"
+        "import 'board.dart';\n"
+        "import 'controller.dart';\n",
+    'test/game/campaign_test.dart':
+        "import 'package:realms/game/campaign.dart';\n",
+    'test/game/play/board_test.dart':
+        "import 'package:realms/game/game.dart';\n"
+        "import 'package:realms/game/play/board.dart';\n",
     'test/game/engine/board_test.dart':
         "import 'package:test/test.dart';\n"
         "import 'package:realms/game/engine/engine.dart';\n"

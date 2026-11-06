@@ -1,165 +1,28 @@
 import 'dart:async';
 import 'dart:math';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:realms/app/appearance/appearance.dart';
+import 'package:realms/app/audio/audio.dart';
 import 'package:realms/app/localization/localization.dart';
 import 'package:realms/game/engine/engine.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import 'board.dart';
-import 'sounds.dart';
-
-/// Coordinates a play session and its persisted, one-time instructions.
-final class PlayController extends ChangeNotifier {
-  /// Randomness and tutorial storage can be supplied for deterministic tests.
-  new({Random? random, PlayTutorialStore? tutorialStore})
-    : _random = random ?? Random(),
-      _tutorialStore = tutorialStore ?? _PreferencesPlayTutorialStore() {
-    _state = GameState.start(
-      configuration: GameConfiguration(),
-      random: _random,
-    );
-    ready = _loadTutorial();
-  }
-
-  final Random _random;
-  final PlayTutorialStore _tutorialStore;
-  late GameState _state;
-  GameBoard? _previousBoard;
-  GameMoveResult? _lastMove;
-  bool _tutorialLoaded = false;
-  bool _showTutorial = false;
-  bool _disposed = false;
-
-  /// Completes after reading the tutorial preference, including read failures.
-  late final Future<void> ready;
-
-  /// The immutable engine snapshot for this session.
-  GameState get state => _state;
-
-  /// Board before the last successful move, for presentation animations.
-  GameBoard? get previousBoard => _previousBoard;
-
-  /// Engine events from the last successful move, for presentation animations.
-  GameMoveResult? get lastMove => _lastMove;
-
-  /// False while the persisted tutorial preference is being read.
-  bool get tutorialLoaded => _tutorialLoaded;
-
-  /// Whether the player must acknowledge the instructions.
-  bool get showTutorial => _showTutorial;
-
-  /// Input is accepted only after the tutorial and while the game is active.
-  bool get canMove =>
-      !_disposed &&
-      _tutorialLoaded &&
-      !_showTutorial &&
-      _state.status == GameStatus.inProgress;
-
-  Future<void> _loadTutorial() async {
-    var showTutorial = true;
-
-    try {
-      showTutorial = !await _tutorialStore.hasSeenTutorial();
-    } on Object catch (error) {
-      debugPrint('Could not read the play tutorial preference: $error');
-    }
-
-    // A pending read must not resurrect a dismissed hint or a disposed screen.
-    if (_disposed || _tutorialLoaded) return;
-
-    _tutorialLoaded = true;
-    _showTutorial = showTutorial;
-    notifyListeners();
-  }
-
-  /// Hides the hint immediately, even if persistence is unavailable.
-  Future<void> dismissTutorial() async {
-    if (_disposed) return;
-
-    _tutorialLoaded = true;
-    _showTutorial = false;
-    notifyListeners();
-
-    try {
-      await _tutorialStore.markTutorialSeen();
-    } on Object catch (error) {
-      debugPrint('Could not save the play tutorial preference: $error');
-    }
-  }
-
-  /// Restarts with the same game configuration and random source.
-  void startNewGame() {
-    if (_disposed) return;
-
-    _previousBoard = null;
-    _lastMove = null;
-
-    _state = GameState.start(
-      configuration: _state.configuration,
-      random: _random,
-    );
-
-    notifyListeners();
-  }
-
-  /// Delegates a player action to the engine, publishing only changed states.
-  void move(MoveDirection direction) {
-    if (!canMove) return;
-
-    final result = _state.moveWithResult(direction: direction, random: _random);
-
-    if (!result.changed) return;
-
-    _previousBoard = _state.board;
-    _lastMove = result;
-    _state = result.state;
-
-    notifyListeners();
-  }
-
-  @override
-  void dispose() {
-    _disposed = true;
-    super.dispose();
-  }
-}
-
-/// Persists whether the player has acknowledged the play instructions.
-///
-/// An interface allows widget tests to use an in-memory implementation.
-abstract interface class PlayTutorialStore {
-  /// Whether the player already dismissed the tutorial.
-  Future<bool> hasSeenTutorial();
-
-  /// Remembers that the player dismissed the tutorial.
-  Future<void> markTutorialSeen();
-}
-
-final class _PreferencesPlayTutorialStore implements PlayTutorialStore {
-  static const _tutorialSeenKey = 'realms.play.tutorial_seen';
-
-  late final SharedPreferencesAsync _preferences = SharedPreferencesAsync();
-
-  @override
-  Future<bool> hasSeenTutorial() async {
-    return await _preferences.getBool(_tutorialSeenKey) ?? false;
-  }
-
-  @override
-  Future<void> markTutorialSeen() {
-    return _preferences.setBool(_tutorialSeenKey, true);
-  }
-}
+import 'controller.dart';
 
 /// Displays a Classic game with touch, keyboard, and sound feedback.
 final class PlayScreen extends StatefulWidget {
   /// Creates the Classic game screen.
-  const new({this.controller, super.key});
+  const new({this.controller, this.audio, super.key});
 
   /// An optional externally owned session; otherwise the screen owns one.
   final PlayController? controller;
+
+  /// Shared application playback; null makes this screen silent.
+  /// The screen never owns or disposes this dependency.
+  final AudioPlayback? audio;
 
   @override
   State<PlayScreen> createState() => _PlayScreenState();
@@ -175,23 +38,31 @@ final class _PlayScreenState extends State<PlayScreen>
 
   late PlayController _controller;
   late final AnimationController _boardAnimation;
-  late final PlaySounds _sounds;
+  GameMoveResult? _feedbackMove;
   late GameState _observedState;
 
   bool _mergeSoundPlayed = false;
 
+  void _playSound(SoundEffect effect, {required double volume}) {
+    // Preserve the existing full-volume debug override for feedback.
+    final playbackVolume = kDebugMode ? 1.0 : volume;
+    widget.audio?.play(effect, volume: playbackVolume);
+  }
+
   void _onAnimationFrame() {
-    final move = _controller.lastMove;
+    final move = _feedbackMove;
 
     // Play the merge effect once, when the sliding phase has finished.
     if (!_mergeSoundPlayed &&
-        _boardAnimation.isAnimating &&
         _boardAnimation.value >= PlayBoard.slideEnd &&
         move != null &&
         move.merges.isNotEmpty) {
       _mergeSoundPlayed = true;
 
-      _sounds.play(PlaySoundEffect.merge, mergeCount: move.merges.length);
+      _playSound(
+        SoundEffect.merge,
+        volume: move.merges.length > 1 ? 0.42 : 0.34,
+      );
     }
 
     if (mounted) setState(() {});
@@ -211,8 +82,7 @@ final class _PlayScreenState extends State<PlayScreen>
     _observedState = _controller.state;
 
     // Preload audio without blocking the game screen.
-    _sounds = PlaySounds();
-    unawaited(_sounds.initialize());
+    unawaited(widget.audio?.initialize());
 
     _boardAnimation =
         AnimationController(
@@ -235,12 +105,14 @@ final class _PlayScreenState extends State<PlayScreen>
       if (_controller.lastMove != null) {
         // A new move starts a new sound and animation sequence.
         _mergeSoundPlayed = false;
+        _feedbackMove = _controller.lastMove;
 
-        _sounds.play(PlaySoundEffect.slide);
+        _playSound(SoundEffect.slide, volume: 0.18);
         _boardAnimation.forward(from: 0);
       } else {
         // Restart cancels the previous animation and its pending merge.
         _mergeSoundPlayed = false;
+        _feedbackMove = null;
         _boardAnimation.value = 1;
       }
     }
@@ -252,6 +124,9 @@ final class _PlayScreenState extends State<PlayScreen>
   void didUpdateWidget(PlayScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
 
+    if (oldWidget.audio != widget.audio) {
+      unawaited(widget.audio?.initialize());
+    }
     if (oldWidget.controller == widget.controller) return;
 
     _controller.removeListener(_onChanged);
@@ -263,6 +138,7 @@ final class _PlayScreenState extends State<PlayScreen>
     _controller = widget.controller ?? PlayController();
     _observedState = _controller.state;
     _mergeSoundPlayed = false;
+    _feedbackMove = null;
 
     // The updated controller starts from its current snapshot, without a tween.
     _boardAnimation.removeListener(_onAnimationFrame);
@@ -287,9 +163,6 @@ final class _PlayScreenState extends State<PlayScreen>
     _boardAnimation.removeListener(_onAnimationFrame);
     _boardAnimation.removeStatusListener(_onAnimationStatus);
     _boardAnimation.dispose();
-
-    // Release this screen's sounds without shutting down the shared engine.
-    unawaited(_sounds.dispose());
 
     _focusNode.dispose();
 
@@ -399,7 +272,7 @@ final class _PlayScreenState extends State<PlayScreen>
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 500),
                   child: Padding(
-                    padding: const EdgeInsets.all(20),
+                    padding: const EdgeInsets.all(spaceRegular),
                     child: Column(
                       children: [
                         Text(localization.scoreLabel),
@@ -407,7 +280,7 @@ final class _PlayScreenState extends State<PlayScreen>
                           localization.score(points: gameState.score),
                           style: Theme.of(context).textTheme.headlineLarge,
                         ),
-                        const SizedBox(height: 20),
+                        const SizedBox(height: spaceRegular),
                         Expanded(
                           child: Center(
                             child: GestureDetector(
@@ -445,25 +318,25 @@ final class _PlayScreenState extends State<PlayScreen>
               ),
             ),
             if (showTutorial) ...[
-              const Positioned.fill(
+              Positioned.fill(
                 child: ModalBarrier(
                   dismissible: false,
-                  color: Color(0x99000000),
+                  color: GameAppearance.of(context).tutorialScrim,
                 ),
               ),
               Center(
                 child: Padding(
-                  padding: const EdgeInsets.all(24),
+                  padding: const EdgeInsets.all(spaceLarge),
                   child: ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: 360),
                     child: Card(
                       child: Padding(
-                        padding: const EdgeInsets.all(24),
+                        padding: const EdgeInsets.all(spaceLarge),
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             const Icon(Icons.touch_app_outlined, size: 52),
-                            const SizedBox(height: 16),
+                            const SizedBox(height: spaceMedium),
                             Text(
                               localization.howToPlayTitle,
                               style: Theme.of(context).textTheme.headlineSmall,
@@ -473,13 +346,13 @@ final class _PlayScreenState extends State<PlayScreen>
                               localization.howToPlayDescription,
                               textAlign: TextAlign.center,
                             ),
-                            const SizedBox(height: 8),
+                            const SizedBox(height: spaceSmall),
                             Text(
                               localization.howToPlayKeyboard,
                               textAlign: TextAlign.center,
                               style: Theme.of(context).textTheme.bodySmall,
                             ),
-                            const SizedBox(height: 24),
+                            const SizedBox(height: spaceLarge),
                             SizedBox(
                               width: double.infinity,
                               child: FilledButton(

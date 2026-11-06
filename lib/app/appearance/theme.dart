@@ -1,26 +1,32 @@
 import 'package:flutter/material.dart';
 
-/// Shared light appearance, inspired by the forest building artwork.
-final ThemeData lightTheme = ThemeData(
-  useMaterial3: true,
-  colorScheme: ColorScheme.fromSeed(
-    seedColor: const Color(0xFF597D35),
-    surface: const Color(0xFFF0F3E5),
-    surfaceContainerHighest: const Color(0xFFD9E4C5),
-    primaryContainer: const Color(0xFFC6DA9F),
+import 'raw.dart';
+import 'semantic.dart';
+
+/// Shared light appearance, inspired by the existing building artwork.
+final ThemeData lightTheme = _theme(
+  ColorScheme.fromSeed(
+    seedColor: leafGreen,
+    surface: ivoryGreen,
+    surfaceContainerHighest: paleGreen,
+    primaryContainer: springGreen,
   ),
-  scaffoldBackgroundColor: const Color(0xFFF0F3E5),
 );
 
-/// Shared dark appearance with muted forest and earth colors.
-final ThemeData darkTheme = ThemeData(
-  useMaterial3: true,
-  colorScheme: ColorScheme.fromSeed(
-    seedColor: const Color(0xFFA0C875),
+/// Shared dark appearance with muted green and earth colors.
+final ThemeData darkTheme = _theme(
+  ColorScheme.fromSeed(
+    seedColor: sageGreen,
     brightness: Brightness.dark,
-    surface: const Color(0xFF1D281D),
-    surfaceContainerHighest: const Color(0xFF374A32),
-    primaryContainer: const Color(0xFF436340),
+    surface: deepGreen,
+    surfaceContainerHighest: mossGreen,
+    primaryContainer: fernGreen,
   ),
-  scaffoldBackgroundColor: const Color(0xFF1D281D),
+);
+
+ThemeData _theme(ColorScheme colors) => ThemeData(
+  useMaterial3: true,
+  colorScheme: colors,
+  scaffoldBackgroundColor: colors.surface,
+  extensions: [GameAppearance.fromScheme(colors)],
 );
