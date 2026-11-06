@@ -163,9 +163,9 @@ void main() {
       write('assets/icons/restart.png', 'image');
       register(['assets/icons/']);
       final sources = generateAssetSources(project);
-      expect(sources['lib/app/assets/catalog.dart'], contains('get restart'));
-      expect(sources['lib/app/assets/catalog.dart'], isNot(contains('notes')));
-      expect(sources['lib/app/assets/catalog.dart'], isNot(contains('drafts')));
+      expect(sources['lib/app/asset/catalog.dart'], contains('get restart'));
+      expect(sources['lib/app/asset/catalog.dart'], isNot(contains('notes')));
+      expect(sources['lib/app/asset/catalog.dart'], isNot(contains('drafts')));
       write('assets/drafts2/unregistered.png', 'image');
       expect(
         () => generateAssetSources(project),
@@ -246,7 +246,7 @@ void main() {
       configure(
         'assets',
         (configuration) =>
-            configuration['output'] = 'lib/app/assets/catalog.g.dart',
+            configuration['output'] = 'lib/app/asset/catalog.g.dart',
       );
       expect(
         () => generateAssetSources(project),
@@ -348,7 +348,7 @@ flutter:
     test('emits no placeholder module when there are no bundled assets', () {
       expect(generateAssetSources(project), isEmpty);
       expect(
-        Directory.fromUri(project.uri.resolve('lib/app/assets/')).existsSync(),
+        Directory.fromUri(project.uri.resolve('lib/app/asset/')).existsSync(),
         isFalse,
       );
     });
@@ -366,7 +366,7 @@ flutter:
         write(
           'probe.dart',
           "import 'dart:io';\n"
-              "import 'lib/app/assets/assets.dart';\n"
+              "import 'lib/app/asset/asset.dart';\n"
               '''
 void main() {
   if (assets.icons.restartButton != 'assets/icons/restart-button.svg') {
@@ -392,7 +392,7 @@ void main() {
       write('assets/Icons/play-button.png', 'image');
       final source = generateAssetSources(
         project,
-      )['lib/app/assets/catalog.dart']!;
+      )['lib/app/asset/catalog.dart']!;
       expect(source, contains('get icons'));
       expect(source, contains('get restart'));
       expect(source, contains('get nextLevel'));
@@ -496,7 +496,7 @@ void main() {
       write('assets/icons/2.0x/restart.png', 'larger');
       final source = generateAssetSources(
         project,
-      )['lib/app/assets/catalog.dart']!;
+      )['lib/app/asset/catalog.dart']!;
       expect('get restart'.allMatches(source), hasLength(1));
       expect(source, isNot(contains('2.0x')));
     });
@@ -1138,24 +1138,24 @@ void main() {
         register([]);
         Directory.fromUri(project.uri.resolve('assets/icons/'))
             .deleteSync(recursive: true);
-        write('lib/app/assets/notes.dart', '// Handwritten fixture\n');
+        write('lib/app/asset/notes.dart', '// Handwritten fixture\n');
         await expectLater(
           updateResources(project, check: true),
           failsWith('stale'),
         );
         await updateResources(project, check: false);
         expect(
-          File.fromUri(project.uri.resolve('lib/app/assets/catalog.dart'))
+          File.fromUri(project.uri.resolve('lib/app/asset/catalog.dart'))
               .existsSync(),
           isFalse,
         );
         expect(
-          File.fromUri(project.uri.resolve('lib/app/assets/assets.dart'))
+          File.fromUri(project.uri.resolve('lib/app/asset/asset.dart'))
               .existsSync(),
           isFalse,
         );
         expect(
-          File.fromUri(project.uri.resolve('lib/app/assets/notes.dart'))
+          File.fromUri(project.uri.resolve('lib/app/asset/notes.dart'))
               .readAsStringSync(),
           '// Handwritten fixture\n',
         );

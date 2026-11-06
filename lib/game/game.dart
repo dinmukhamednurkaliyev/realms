@@ -1,6 +1,7 @@
-/// Game presentation APIs used by the application root.
+/// Play feature APIs used by the application root.
 ///
-/// Engine and mode declarations are exported by their own modules.
+/// Engine and Campaign declarations have their own module entry points.
 library;
 
-export 'screens/play.dart' show PlayController, PlayScreen;
+export 'play/controller.dart' show PlayController;
+export 'play/screen.dart' show PlayScreen;

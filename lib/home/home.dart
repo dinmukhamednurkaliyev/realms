@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:realms/app/appearance/appearance.dart';
 import 'package:realms/app/localization/localization.dart';
 
 /// The home screen, with navigation handled by the application.
@@ -21,23 +22,23 @@ final class HomeScreen extends StatelessWidget {
             constraints: const BoxConstraints(maxWidth: 420),
             child: SingleChildScrollView(
               child: Padding(
-                padding: const EdgeInsets.all(24),
+                padding: const EdgeInsets.all(spaceLarge),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     const Icon(Icons.castle_outlined, size: 88),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: spaceLarge),
                     Text(
                       localization.appTitle,
                       style: typography.displayMedium,
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: spaceSmall),
                     Text(
                       localization.home.tagline,
                       style: typography.titleMedium,
                       textAlign: TextAlign.center,
                     ),
-                    const SizedBox(height: 48),
+                    const SizedBox(height: spaceExtraLarge),
                     SizedBox(
                       width: double.infinity,
                       child: FilledButton(

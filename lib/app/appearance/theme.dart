@@ -1,18 +1,32 @@
 import 'package:flutter/material.dart';
 
-/// Shared light appearance; screens inherit it through Theme.of(context).
-final ThemeData lightTheme = ThemeData(
-  useMaterial3: true,
-  colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF81684A)),
-  scaffoldBackgroundColor: const Color(0xFFF5F0E7),
+import 'raw.dart';
+import 'semantic.dart';
+
+/// Shared light appearance, inspired by the existing building artwork.
+final ThemeData lightTheme = _theme(
+  ColorScheme.fromSeed(
+    seedColor: leafGreen,
+    surface: ivoryGreen,
+    surfaceContainerHighest: paleGreen,
+    primaryContainer: springGreen,
+  ),
 );
 
-/// Shared dark appearance; screens inherit it through Theme.of(context).
-final ThemeData darkTheme = ThemeData(
-  useMaterial3: true,
-  colorScheme: ColorScheme.fromSeed(
-    seedColor: const Color(0xFFC19B68),
+/// Shared dark appearance with muted green and earth colors.
+final ThemeData darkTheme = _theme(
+  ColorScheme.fromSeed(
+    seedColor: sageGreen,
     brightness: Brightness.dark,
+    surface: deepGreen,
+    surfaceContainerHighest: mossGreen,
+    primaryContainer: fernGreen,
   ),
-  scaffoldBackgroundColor: const Color(0xFF191A17),
+);
+
+ThemeData _theme(ColorScheme colors) => ThemeData(
+  useMaterial3: true,
+  colorScheme: colors,
+  scaffoldBackgroundColor: colors.surface,
+  extensions: [GameAppearance.fromScheme(colors)],
 );

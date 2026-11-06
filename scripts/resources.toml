@@ -1,7 +1,7 @@
 [assets]
 directory = "assets"
-entry_point = "lib/app/assets/assets.dart"
-output = "lib/app/assets/catalog.dart"
+entry_point = "lib/app/asset/asset.dart"
+output = "lib/app/asset/catalog.dart"
 exclude = ["localization/**"]
 
 [localization]

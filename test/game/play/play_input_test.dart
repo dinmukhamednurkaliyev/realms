@@ -5,7 +5,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:realms/app/localization/localization.dart';
 import 'package:realms/game/engine/engine.dart';
-import 'package:realms/game/screens/play.dart';
+import 'package:realms/game/play/controller.dart';
+import 'package:realms/game/play/screen.dart';
 
 final class _MemoryTutorialStore implements PlayTutorialStore {
   new({this.seen = false});
